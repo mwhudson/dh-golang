@@ -8,7 +8,7 @@ TODO
 
 use strict;
 use Debian::Debhelper::Dh_Lib;
-use File::Find;
+use Parse::DebControl; # not in core
 
 =head1 SYNOPSIS
 
@@ -26,12 +26,33 @@ TODO
 
 init();
 
+############################################################################
+# Generate misc:Built-Using substvar with the versions of all golang-*
+# build-dependency packages.
+############################################################################
+
+my $built_using;
+
+# TODO: switch to Dpkg::Control::Info, maybe?
+my $control_parser = Parse::DebControl->new();
+my $control_data = $control_parser->parse_file('./debian/control');
+my $source_data = $control_data->[0];
+if (!defined($source_data)) {
+    error('Could not parse ./debian/control');
+}
+if (defined($source_data->{'Build-Depends'})) {
+    my $golang_deps = join(' ', grep { defined }
+                                map  { /^\s*(golang-[^\s]+)/; $1 }
+                                split(',', $source_data->{'Build-Depends'}));
+    if ($golang_deps ne '') {
+        $built_using = `dpkg-query -f='\${source:Package} (= \${source:Version}), ' -W $golang_deps`;
+    }
+}
+
+# If there is an easier way to have a universal misc:Built-Using on all binary
+# packages, I am happy to merge your patch :).
 foreach my $package (@{$dh{DOPACKAGES}}) {
-    my $tmpdir = tmpdir($package);
-
-    print STDERR "ohai for package $package!\n";
-
-    #addsubstvar($package, "misc:Depends", "init-system-helpers (>= 1.4)");
+    addsubstvar($package, "misc:Built-Using", $built_using);
 }
 
 =head1 SEE ALSO
