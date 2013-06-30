@@ -1,0 +1,47 @@
+#!/usr/bin/perl -w
+
+=head1 NAME
+
+TODO
+
+=cut
+
+use strict;
+use Debian::Debhelper::Dh_Lib;
+use File::Find;
+
+=head1 SYNOPSIS
+
+TODO
+
+=head1 DESCRIPTION
+
+TODO
+
+=head1 NOTES
+
+TODO
+
+=cut
+
+init();
+
+foreach my $package (@{$dh{DOPACKAGES}}) {
+    my $tmpdir = tmpdir($package);
+
+    print STDERR "ohai for package $package!\n";
+
+    #addsubstvar($package, "misc:Depends", "init-system-helpers (>= 1.4)");
+}
+
+=head1 SEE ALSO
+
+TODO
+
+=head1 AUTHORS
+
+TODO
+
+=cut
+
+# vim:ts=4:sw=4:et
