@@ -9,7 +9,9 @@ Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/dh-golang.git;a=su
 
 Package: dh-golang
 Architecture: all
-Depends: ${perl:Depends}, ${misc:Depends}, debhelper
+Depends: ${perl:Depends}, ${misc:Depends},
+         debhelper,
+         libparse-debcontrol-perl
 Description: debhelper add-on to handle Go packaging
  dh-golang provides a debhelper sequence addon named 'golang', a buildsystem
  module named 'golang' and a command called dh_golang.
