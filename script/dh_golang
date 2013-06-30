@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-TODO
+dh_golang - Generates Built-Using substvar
 
 =cut
 
@@ -12,15 +12,23 @@ use Parse::DebControl; # not in core
 
 =head1 SYNOPSIS
 
-TODO
+B<dh_golang> [S<I<debhelper options>>]
 
 =head1 DESCRIPTION
 
-TODO
+B<dh_golang> is a debhelper program which adds the misc:Built-Using substvar
+based on the Build-Dependencies of your packages. Every package starting with
+golang is queried for the precise version number.
+
+As an example, if you Build-Depend on golang-pq-dev, the resulting
+misc:Built-Using value (aside from the precise version number) will look like
+this:
+
+golang (= 2:1.1.1-1), golang-pq-dev (= 0.0~git20130606-1),
 
 =head1 NOTES
 
-TODO
+The best way to invoke B<dh_golang> is by using B<dh --with=golang>.
 
 =cut
 
@@ -57,11 +65,11 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 =head1 SEE ALSO
 
-TODO
+dh(1)
 
 =head1 AUTHORS
 
-TODO
+Michael Stapelberg <stapelberg@debian.org>
 
 =cut
 
