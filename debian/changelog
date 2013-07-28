@@ -1,5 +1,5 @@
 dh-golang (1.0) unstable; urgency=low
 
-  * Initial release
+  * Initial release (Closes: #718183)
 
- -- Michael Stapelberg <stapelberg@debian.org>  Sun, 30 Jun 2013 20:10:46 +0200
+ -- Michael Stapelberg <stapelberg@debian.org>  Sun, 28 Jul 2013 16:02:04 +0200
