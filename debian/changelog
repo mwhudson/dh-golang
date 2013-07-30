@@ -4,7 +4,7 @@ dh-golang (1.1) unstable; urgency=low
   * Install files into /usr/share/gocode/src/${DH_GOPKG} and /usr/bin/ by
     default
 
- -- Michael Stapelberg <stapelberg@debian.org>  Tue, 30 Jul 2013 11:28:36 +0200
+ -- Michael Stapelberg <stapelberg@debian.org>  Tue, 30 Jul 2013 17:41:29 +0200
 
 dh-golang (1.0) unstable; urgency=low
 
