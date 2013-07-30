@@ -120,11 +120,11 @@ sub install {
     my $this = shift;
     my $destdir = shift;
 
-    $this->doit_in_builddir('mkdir', '-p', $destdir);
-    $this->doit_in_builddir('cp', '-r', 'bin', $destdir);
+    $this->doit_in_builddir('mkdir', '-p', "$destdir/usr");
+    $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
 
     # Path to the src/ directory within $destdir
-    my $dest_src = "$destdir/src/$ENV{DH_GOPKG}";
+    my $dest_src = "$destdir/usr/share/golang/src/$ENV{DH_GOPKG}";
     $this->doit_in_builddir('mkdir', '-p', $dest_src);
     $this->doit_in_builddir('cp', '-r', '-T', "src/$ENV{DH_GOPKG}", $dest_src);
 }
