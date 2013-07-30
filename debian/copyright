@@ -2,13 +2,13 @@ Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 
 Files: *
 Copyright: 2013 Michael Stapelberg
-License: BSD
+License: BSD-3-clause
 
 Files: debian/*
 Copyright: 2013 Michael Stapelberg <stapelberg@debian.org>
-License: BSD
+License: BSD-3-clause
 
-License: BSD
+License: BSD-3-clause
  Copyright © 2013 Michael Stapelberg
  All rights reserved.
  .
