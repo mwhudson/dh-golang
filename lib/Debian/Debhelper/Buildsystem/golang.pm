@@ -119,9 +119,13 @@ sub test {
 sub install {
     my $this = shift;
     my $destdir = shift;
+    my $builddir = $this->get_builddir();
 
-    $this->doit_in_builddir('mkdir', '-p', "$destdir/usr");
-    $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
+    my @binaries = <$builddir/bin/*>;
+    if (@binaries > 0) {
+        $this->doit_in_builddir('mkdir', '-p', "$destdir/usr");
+        $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
+    }
 
     # Path to the src/ directory within $destdir
     my $dest_src = "$destdir/usr/share/gocode/src/$ENV{DH_GOPKG}";
