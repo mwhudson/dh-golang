@@ -1,3 +1,9 @@
+dh-golang (1.2) unstable; urgency=low
+
+  * Only copy bin/ if there actually are any binaries
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Thu, 05 Sep 2013 09:20:34 +0200
+
 dh-golang (1.1) unstable; urgency=low
 
   * Add dependency on dpkg >= 1.16.2 for the source: fields
