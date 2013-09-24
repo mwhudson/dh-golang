@@ -57,10 +57,11 @@ sub configure {
     my @sourcefiles;
     find({
         # Ignores ./debian entirely, but not e.g. foo/debian/debian.go
+        # Ignores ./.pc (quilt) entirely.
         # Also ignores the build directory to avoid recursive copies.
         preprocess => sub {
             return @_ if $File::Find::dir ne '.';
-            return grep { $_ ne 'debian' && $_ ne $builddir } @_;
+            return grep { $_ ne 'debian' && $_ ne '.pc' && $_ ne $builddir } @_;
         },
         wanted => sub {
             my $name = $File::Find::name;
