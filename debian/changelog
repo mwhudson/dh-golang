@@ -1,3 +1,12 @@
+dh-golang (1.4) unstable; urgency=low
+
+  * in debian/rules, export DH_GOLANG_INSTALL_ALL=1 to install all files into
+    the builddir, not just .go files. This may be necessary to include golden
+    files for testcases, but then you need to manually delete extra LICENSE
+    files and such.
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Mon, 02 Dec 2013 21:54:11 +0100
+
 dh-golang (1.3) unstable; urgency=low
 
   * Skip quilt’s .pc directories when copying the source code into the

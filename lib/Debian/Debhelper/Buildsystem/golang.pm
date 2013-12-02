@@ -65,7 +65,9 @@ sub configure {
         },
         wanted => sub {
             my $name = $File::Find::name;
-            return unless substr($name, -3) eq '.go';
+            return if substr($name, -3) eq '.go' &&
+                      (!exists($ENV{DH_GOLANG_INSTALL_ALL}) ||
+                       $ENV{DH_GOLANG_INSTALL_ALL} != 1);
             return unless -f $name;
             # Store regexp/utf.go instead of ./regexp/utf.go
             push @sourcefiles, substr($name, 2);
