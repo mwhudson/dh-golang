@@ -54,6 +54,8 @@ sub configure {
     # Copy all .go files into the build directory $builddir/src/$go_package
     ############################################################################
 
+    my $install_all = (exists($ENV{DH_GOLANG_INSTALL_ALL}) &&
+                       $ENV{DH_GOLANG_INSTALL_ALL} == 1);
     my @sourcefiles;
     find({
         # Ignores ./debian entirely, but not e.g. foo/debian/debian.go
@@ -65,9 +67,11 @@ sub configure {
         },
         wanted => sub {
             my $name = $File::Find::name;
-            return if substr($name, -3) eq '.go' &&
-                      (!exists($ENV{DH_GOLANG_INSTALL_ALL}) ||
-                       $ENV{DH_GOLANG_INSTALL_ALL} != 1);
+            if ($install_all) {
+                # All files will be installed
+            } elsif (substr($name, -3) ne '.go') {
+                return;
+            }
             return unless -f $name;
             # Store regexp/utf.go instead of ./regexp/utf.go
             push @sourcefiles, substr($name, 2);

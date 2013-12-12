@@ -1,3 +1,10 @@
+dh-golang (1.5) unstable; urgency=low
+
+  * Fix a bug introduce in 1.4 which lead to .go files not being installed
+    without DH_GOLANG_INSTALL_ALL=1 (Closes: #731991)
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Thu, 12 Dec 2013 10:46:36 +0100
+
 dh-golang (1.4) unstable; urgency=low
 
   * in debian/rules, export DH_GOLANG_INSTALL_ALL=1 to install all files into
