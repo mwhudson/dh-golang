@@ -43,7 +43,7 @@ my $built_using;
 
 # TODO: switch to Dpkg::Control::Info, maybe?
 my $control_parser = Parse::DebControl->new();
-my $control_data = $control_parser->parse_file('./debian/control');
+my $control_data = $control_parser->parse_file('./debian/control', { stripComments => 1 });
 my $source_data = $control_data->[0];
 if (!defined($source_data)) {
     error('Could not parse ./debian/control');
