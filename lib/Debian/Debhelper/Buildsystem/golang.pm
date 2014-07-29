@@ -109,18 +109,32 @@ sub configure {
     _link_contents('/usr/share/gocode/src', "$builddir/src");
 }
 
+sub get_targets {
+    my $buildpkg = $ENV{DH_GOLANG_BUILDPKG} || "$ENV{DH_GOPKG}/...";
+    my $output = qx(go list $buildpkg);
+    my @excludes = split(/ /, $ENV{DH_GOLANG_EXCLUDES});
+    my @targets = split(/\n/, $output);
+
+    # Remove all targets that are matched by one of the regular expressions in DH_GOLANG_EXCLUDES.
+    for my $pattern (@excludes) {
+        @targets = grep { !/$pattern/ } @targets;
+    }
+
+    return @targets;
+}
+
 sub build {
     my $this = shift;
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
-    $this->doit_in_builddir("go", "install", "-v", @_, "$ENV{DH_GOPKG}/...");
+    $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
 }
 
 sub test {
     my $this = shift;
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
-    $this->doit_in_builddir("go", "test", "-v", @_, "$ENV{DH_GOPKG}/...");
+    $this->doit_in_builddir("go", "test", "-v", @_, get_targets());
 }
 
 sub install {

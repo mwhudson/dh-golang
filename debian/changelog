@@ -1,3 +1,20 @@
+dh-golang (1.6) unstable; urgency=low
+
+  [ Michael Stapelberg ]
+  * In debian/rules, export DH_GOLANG_BUILDPKG to overwrite "${DH_GOPKG}/..."
+    in the go install and go test commands. This can be used to avoid
+    recursing into subpackages or to specify just one specific part of the
+    package that should be built and installed.
+  * In debian/rules, export DH_GOLANG_EXCLUDES (containing a space-separated
+    list of perl regular expressions) to filter targets, e.g.:
+    export DH_GOLANG_EXCLUDES := github.com/coreos/etcd/third_party
+    (Closes: #721496)
+
+  [ Alessandro Ghedini ]
+  * Enable debian/control comment stripping (Closes: #734785)
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Tue, 29 Jul 2014 09:59:18 +0200
+
 dh-golang (1.5) unstable; urgency=low
 
   * Fix a bug introduce in 1.4 which lead to .go files not being installed
