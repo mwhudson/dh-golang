@@ -1,3 +1,9 @@
+dh-golang (1.6ubuntu1) utopic; urgency=medium
+
+  * Add sort-of support for shared libs.
+
+ -- Michael Hudson-Doyle <michael.hudson@canonical.com>  Wed, 05 Nov 2014 16:01:29 +1300
+
 dh-golang (1.6) unstable; urgency=low
 
   [ Michael Stapelberg ]

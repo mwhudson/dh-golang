@@ -107,6 +107,10 @@ sub configure {
     # and symlink all the sources into that component ($builddir).
 
     _link_contents('/usr/share/gocode/src', "$builddir/src");
+
+    if (exists($ENV{DH_GOLANG_SHLIB_NAME})) {
+        _link_contents('/usr/share/gocode/pkg', "$builddir/pkg");
+    }
 }
 
 sub get_targets {
@@ -127,7 +131,12 @@ sub build {
     my $this = shift;
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
-    $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
+    if (exists($ENV{DH_GOLANG_SHLIB_NAME})) {
+        $this->doit_in_builddir("go", "install", "-v", "-o", $ENV{DH_GOLANG_SHLIB_NAME}, "-buildmode=shared", "-norpath", @_, get_targets());
+        $this->doit_in_builddir("go", "install", "-v", "-buildmode=exe", "-linkshared", "-norpath", @_, get_targets());
+    } else {
+        $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
+    }
 }
 
 sub test {
@@ -146,6 +155,16 @@ sub install {
     if (@binaries > 0) {
         $this->doit_in_builddir('mkdir', '-p', "$destdir/usr");
         $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
+    }
+
+    my @shlibs = <$builddir/pkg/shared_*/*.so>;
+
+    if (@shlibs > 0) {
+        my $libdir = "$destdir/usr/lib/" . qx(dpkg-architecture -qDEB_HOST_GNU_TYPE`);
+        $this->doit_in_builddir('mkdir', '-p', $libdir);
+        # Not sure if arguments get shell-expanded here...
+        $this->doit_in_builddir('cp', '$builddir/pkg/shared_*/*.so', $libdir);
+        # XXX need to copy dso markers
     }
 
     # Path to the src/ directory within $destdir
