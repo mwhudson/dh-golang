@@ -175,7 +175,7 @@ sub install {
     my @shlibs = <$builddir/*.so*>;
 
     if (@shlibs > 0) {
-        my $libdir = "$destdir/usr/lib/" . qx(dpkg-architecture -qDEB_HOST_GNU_TYPE);
+        my $libdir = "$destdir/usr/lib/" . qx(dpkg-architecture -qDEB_HOST_MULTIARCH);
         chomp($libdir);
         $this->doit_in_builddir('mkdir', '-p', $libdir);
         doit('cp', "-a", @shlibs, $libdir);
