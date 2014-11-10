@@ -132,8 +132,8 @@ sub build {
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
     if (exists($ENV{DH_GOLANG_SHLIB_NAME})) {
-        $this->doit_in_builddir("go", "install", "-v", "-o", $ENV{DH_GOLANG_SHLIB_NAME}, "-buildmode=shared", "-norpath", @_, get_targets());
-        $this->doit_in_builddir("go", "install", "-v", "-buildmode=exe", "-linkshared", "-norpath", @_, get_targets());
+        $this->doit_in_builddir("gccgo-go", "install", "-v", "-dsoname", $ENV{DH_GOLANG_SHLIB_NAME}, "-buildmode=shared", @_, get_targets());
+        $this->doit_in_builddir("gccgo-go", "install", "-v", "-buildmode=exe", "-linkshared", "-norpath", @_, get_targets());
     } else {
         $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
     }
