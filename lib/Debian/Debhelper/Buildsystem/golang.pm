@@ -146,6 +146,7 @@ sub build {
             "-gccgoflags", join(" ", @ldflags),
             "-buildmode=shared", @_, get_targets());
         $this->doit_in_builddir("ln", "-s", "$basesoname.$ENV{DH_GOLANG_SHLIB_SUBREV}", $basesoname);
+        $this->doit_in_builddir("ln", "-s", "$basesoname.$ENV{DH_GOLANG_SHLIB_SUBREV}", "lib$ENV{DH_GOLANG_SHLIB_NAME}.so");
         $this->doit_in_builddir(
             "go", "install", "-x", "-v", "-buildmode=exe", "-compiler", "gccgo", "-linkshared", @_, get_targets());
     } else {
@@ -171,7 +172,7 @@ sub install {
         $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
     }
 
-    my @shlibs = <$builddir/*.so.*>;
+    my @shlibs = <$builddir/*.so*>;
 
     if (@shlibs > 0) {
         my $libdir = "$destdir/usr/lib/" . qx(dpkg-architecture -qDEB_HOST_GNU_TYPE);
