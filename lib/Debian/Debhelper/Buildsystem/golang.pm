@@ -134,8 +134,8 @@ sub build {
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
     if (exists($ENV{DH_GOLANG_SHLIB_NAME})) {
-        my $basesoname = "lib" . $ENV{DH_GOLANG_SHLIB_NAME} . ".so" . "." . $ENV{DH_GOLANG_SHLIB_ABIREV};
-        my $fullsoname = Cwd::abs_path($builddir . "/" . $basesoname . "." . $ENV{DH_GOLANG_SHLIB_SUBREV});
+        my $basesoname = "lib$ENV{DH_GOLANG_SHLIB_NAME}.so.$ENV{DH_GOLANG_SHLIB_ABIREV}";
+        my $fullsoname = Cwd::abs_path("$builddir/$basesoname.$ENV{DH_GOLANG_SHLIB_SUBREV}");
         my @ldflags = ("-o", $fullsoname, "-soname", $basesoname);
         for my $el (@ldflags) {
             $el = "-Wl," . $el;
@@ -145,6 +145,7 @@ sub build {
             "-compiler", "gccgo",
             "-gccgoflags", join(" ", @ldflags),
             "-buildmode=shared", @_, get_targets());
+        $this->doit_in_builddir("ln", "-s", "$basesoname.$ENV{DH_GOLANG_SHLIB_SUBREV}", $basesoname);
         $this->doit_in_builddir(
             "go", "install", "-x", "-v", "-buildmode=exe", "-compiler", "gccgo", "-linkshared", @_, get_targets());
     } else {
@@ -176,7 +177,7 @@ sub install {
         my $libdir = "$destdir/usr/lib/" . qx(dpkg-architecture -qDEB_HOST_GNU_TYPE);
         chomp($libdir);
         $this->doit_in_builddir('mkdir', '-p', $libdir);
-        doit('cp', @shlibs, $libdir);
+        doit('cp', "-a", @shlibs, $libdir);
         # XXX need to copy dso markers
     }
 
