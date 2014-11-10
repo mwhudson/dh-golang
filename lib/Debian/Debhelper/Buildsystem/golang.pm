@@ -6,6 +6,7 @@ use Debian::Debhelper::Dh_Lib;
 use File::Copy; # in core since 5.002
 use File::Path qw(make_path); # in core since 5.001
 use File::Find; # in core since 5
+use Cwd ();
 
 sub DESCRIPTION {
     "Go"
@@ -129,11 +130,23 @@ sub get_targets {
 
 sub build {
     my $this = shift;
+    my $builddir = $this->get_builddir();
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
     if (exists($ENV{DH_GOLANG_SHLIB_NAME})) {
-        $this->doit_in_builddir("go", "install", "-v", "-o", $ENV{DH_GOLANG_SHLIB_NAME}, "-buildmode=shared", "-norpath", @_, get_targets());
-        $this->doit_in_builddir("go", "install", "-v", "-buildmode=exe", "-linkshared", "-norpath", @_, get_targets());
+        my $basesoname = "lib" . $ENV{DH_GOLANG_SHLIB_NAME} . ".so" . "." . $ENV{DH_GOLANG_SHLIB_ABIREV};
+        my $fullsoname = Cwd::abs_path($builddir . "/" . $basesoname . "." . $ENV{DH_GOLANG_SHLIB_SUBREV});
+        my @ldflags = ("-o", $fullsoname, "-soname", $basesoname);
+        for my $el (@ldflags) {
+            $el = "-Wl," . $el;
+        }
+        $this->doit_in_builddir(
+            "go", "install", "-v", "-x",
+            "-compiler", "gccgo",
+            "-gccgoflags", join(" ", @ldflags),
+            "-buildmode=shared", @_, get_targets());
+        $this->doit_in_builddir(
+            "go", "install", "-x", "-v", "-buildmode=exe", "-compiler", "gccgo", "-linkshared", @_, get_targets());
     } else {
         $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
     }
@@ -157,13 +170,13 @@ sub install {
         $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
     }
 
-    my @shlibs = <$builddir/pkg/shared_*/*.so>;
+    my @shlibs = <$builddir/*.so.*>;
 
     if (@shlibs > 0) {
-        my $libdir = "$destdir/usr/lib/" . qx(dpkg-architecture -qDEB_HOST_GNU_TYPE`);
+        my $libdir = "$destdir/usr/lib/" . qx(dpkg-architecture -qDEB_HOST_GNU_TYPE);
+        chomp($libdir);
         $this->doit_in_builddir('mkdir', '-p', $libdir);
-        # Not sure if arguments get shell-expanded here...
-        $this->doit_in_builddir('cp', '$builddir/pkg/shared_*/*.so', $libdir);
+        doit('cp', @shlibs, $libdir);
         # XXX need to copy dso markers
     }
 
