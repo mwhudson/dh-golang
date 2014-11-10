@@ -2,7 +2,7 @@ package Debian::Debhelper::Buildsystem::golang;
 
 use strict;
 use base 'Debian::Debhelper::Buildsystem';
-use Debian::Debhelper::Dh_Lib; 
+use Debian::Debhelper::Dh_Lib;
 use File::Copy; # in core since 5.002
 use File::Path qw(make_path); # in core since 5.001
 use File::Find; # in core since 5
@@ -175,7 +175,7 @@ sub install {
     my @shlibs = <$builddir/*.so*>;
 
     if (@shlibs > 0) {
-        my $libdir = "$destdir/usr/lib/" . qx(dpkg-architecture -qDEB_HOST_MULTIARCH);
+        my $libdir = "$destdir/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH");
         chomp($libdir);
         $this->doit_in_builddir('mkdir', '-p', $libdir);
         doit('cp', "-a", @shlibs, $libdir);
