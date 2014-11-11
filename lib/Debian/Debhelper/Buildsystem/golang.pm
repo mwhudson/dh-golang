@@ -3,6 +3,7 @@ package Debian::Debhelper::Buildsystem::golang;
 use strict;
 use base 'Debian::Debhelper::Buildsystem';
 use Debian::Debhelper::Dh_Lib;
+use File::Basename qw(dirname);
 use File::Copy; # in core since 5.002
 use File::Path qw(make_path); # in core since 5.001
 use File::Find; # in core since 5
@@ -117,7 +118,7 @@ sub configure {
 sub get_dsodir {
     chomp(my $GOOS = qx(go env GOOS));
     chomp(my $GOARCH = qx(go env GOARCH));
-    return "pkg/shared_${GOOS}_${GOARCH}"
+    return "pkg/shared_gccgo_${GOOS}_${GOARCH}"
 }
 
 sub get_targets {
@@ -190,7 +191,13 @@ sub install {
         chomp($libdir);
         $this->doit_in_builddir('mkdir', '-p', $libdir);
         doit('cp', "-a", @shlibs, $libdir);
-        # XXX need to copy dso markers
+        $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
+        for my $t (get_targets()) {
+            my $src = "$dsodir/$t";
+            my $dest = dirname("$destdir/usr/share/gocode/$dsodir/$t");
+            $this->doit_in_builddir('mkdir', '-p', $dest);
+            $this->doit_in_builddir('cp', $src, $dest);
+        }
     }
 
     # Path to the src/ directory within $destdir
