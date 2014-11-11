@@ -114,6 +114,12 @@ sub configure {
     }
 }
 
+sub get_dsodir {
+    chomp(my $GOOS = qx(go env GOOS));
+    chomp(my $GOARCH = qx(go env GOARCH));
+    return "pkg/shared_${GOOS}_${GOARCH}"
+}
+
 sub get_targets {
     my $buildpkg = $ENV{DH_GOLANG_BUILDPKG} || "$ENV{DH_GOPKG}/...";
     my $output = qx(go list $buildpkg);
@@ -137,6 +143,7 @@ sub build {
         my $basesoname = "lib$ENV{DH_GOLANG_SHLIB_NAME}.so";
         my $abisoname = "$basesoname.$ENV{DH_GOLANG_SHLIB_ABIREV}";
         my $fullsoname = "$abisoname.$ENV{DH_GOLANG_SHLIB_SUBREV}";
+        my $dsodir = get_dsodir();
         my @ldflags = ("-soname", $abisoname);
         for my $el (@ldflags) {
             $el = "-Wl," . $el;
@@ -147,21 +154,9 @@ sub build {
             "-compiler", "gccgo",
             "-gccgoflags", join(" ", @ldflags),
             "-buildmode=shared", @_, get_targets());
-        $this->doit_in_builddir(
-            "mv",
-            "pkg/shared_linux_amd64/$basesoname",
-            "pkg/shared_linux_amd64/$fullsoname",
-            );
-        $this->doit_in_builddir(
-            "ln", "-s",
-            "$fullsoname",
-            "pkg/shared_linux_amd64/$basesoname",
-            );
-        $this->doit_in_builddir(
-            "ln", "-s",
-            "$fullsoname",
-            "pkg/shared_linux_amd64/$abisoname",
-            );
+        $this->doit_in_builddir("mv", "$dsodir/$basesoname", "$dsodir/$fullsoname");
+        $this->doit_in_builddir("ln", "-s", "$fullsoname", "$dsodir/$basesoname");
+        $this->doit_in_builddir("ln", "-s", "$fullsoname", "$dsodir/$abisoname");
         $this->doit_in_builddir(
             "go", "install", "-x", "-v", "-buildmode=exe", "-compiler", "gccgo", "-linkshared", @_, get_targets());
     } else {
@@ -180,6 +175,7 @@ sub install {
     my $this = shift;
     my $destdir = shift;
     my $builddir = $this->get_builddir();
+    my $dsodir = get_dsodir();
 
     my @binaries = <$builddir/bin/*>;
     if (@binaries > 0) {
@@ -187,7 +183,7 @@ sub install {
         $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
     }
 
-    my @shlibs = <$builddir/pkg/shared_linux_amd64/*.so*>;
+    my @shlibs = <$builddir/$dsodir/*.so*>;
 
     if (@shlibs > 0) {
         my $libdir = "$destdir/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH");
