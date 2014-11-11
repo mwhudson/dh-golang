@@ -134,19 +134,34 @@ sub build {
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
     if (exists($ENV{DH_GOLANG_SHLIB_NAME})) {
-        my $basesoname = "lib$ENV{DH_GOLANG_SHLIB_NAME}.so.$ENV{DH_GOLANG_SHLIB_ABIREV}";
-        my $fullsoname = Cwd::abs_path("$builddir/$basesoname.$ENV{DH_GOLANG_SHLIB_SUBREV}");
-        my @ldflags = ("-o", $fullsoname, "-soname", $basesoname);
+        my $basesoname = "lib$ENV{DH_GOLANG_SHLIB_NAME}.so";
+        my $abisoname = "$basesoname.$ENV{DH_GOLANG_SHLIB_ABIREV}";
+        my $fullsoname = "$abisoname.$ENV{DH_GOLANG_SHLIB_SUBREV}";
+        my @ldflags = ("-soname", $abisoname);
         for my $el (@ldflags) {
             $el = "-Wl," . $el;
         }
         $this->doit_in_builddir(
             "go", "install", "-v", "-x",
+            "-dsoname", $ENV{DH_GOLANG_SHLIB_NAME},
             "-compiler", "gccgo",
             "-gccgoflags", join(" ", @ldflags),
             "-buildmode=shared", @_, get_targets());
-        $this->doit_in_builddir("ln", "-s", "$basesoname.$ENV{DH_GOLANG_SHLIB_SUBREV}", $basesoname);
-        $this->doit_in_builddir("ln", "-s", "$basesoname.$ENV{DH_GOLANG_SHLIB_SUBREV}", "lib$ENV{DH_GOLANG_SHLIB_NAME}.so");
+        $this->doit_in_builddir(
+            "mv",
+            "pkg/shared_linux_amd64/$basesoname",
+            "pkg/shared_linux_amd64/$fullsoname",
+            );
+        $this->doit_in_builddir(
+            "ln", "-s",
+            "$fullsoname",
+            "pkg/shared_linux_amd64/$basesoname",
+            );
+        $this->doit_in_builddir(
+            "ln", "-s",
+            "$fullsoname",
+            "pkg/shared_linux_amd64/$abisoname",
+            );
         $this->doit_in_builddir(
             "go", "install", "-x", "-v", "-buildmode=exe", "-compiler", "gccgo", "-linkshared", @_, get_targets());
     } else {
@@ -172,7 +187,7 @@ sub install {
         $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
     }
 
-    my @shlibs = <$builddir/*.so*>;
+    my @shlibs = <$builddir/pkg/shared_linux_amd64/*.so*>;
 
     if (@shlibs > 0) {
         my $libdir = "$destdir/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH");
