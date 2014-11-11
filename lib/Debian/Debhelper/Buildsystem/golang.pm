@@ -146,15 +146,20 @@ sub build {
         my $fullsoname = "$abisoname.$ENV{DH_GOLANG_SHLIB_SUBREV}";
         my $dsodir = get_dsodir();
         my @ldflags = ("-soname", $abisoname);
+        my @targets = get_targets();
         for my $el (@ldflags) {
             $el = "-Wl," . $el;
+        }
+        for my $target (@targets) {
+            $this->doit_in_builddir("rm", "-f", "$dsodir/$target");
+            $this->doit_in_builddir("rm", "-f", "$dsodir/$target.gox");
         }
         $this->doit_in_builddir(
             "go", "install", "-v", "-x",
             "-dsoname", $ENV{DH_GOLANG_SHLIB_NAME},
             "-compiler", "gccgo",
             "-gccgoflags", join(" ", @ldflags),
-            "-buildmode=shared", @_, get_targets());
+            "-buildmode=shared", @_, @targets);
         $this->doit_in_builddir("mv", "$dsodir/$basesoname", "$dsodir/$fullsoname");
         $this->doit_in_builddir("ln", "-s", "$fullsoname", "$dsodir/$basesoname");
         $this->doit_in_builddir("ln", "-s", "$fullsoname", "$dsodir/$abisoname");
@@ -200,6 +205,7 @@ sub install {
             my $dest = dirname("$destdir/usr/share/gocode/$dsodir/$t");
             $this->doit_in_builddir('mkdir', '-p', $dest);
             $this->doit_in_builddir('cp', $src, $dest);
+            $this->doit_in_builddir('cp', "${src}.gox", $dest);
         }
     }
 
