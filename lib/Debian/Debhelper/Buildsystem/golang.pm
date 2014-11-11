@@ -110,8 +110,8 @@ sub configure {
 
     _link_contents('/usr/share/gocode/src', "$builddir/src");
 
-    if (exists($ENV{DH_GOLANG_SHLIB_NAME})) {
-        _link_contents('/usr/share/gocode/pkg', "$builddir/pkg");
+    if (exists($ENV{DH_GOLANG_SHLIB_NAME}) || exists($ENV{DH_GOLANG_USE_SHLIBS})) {
+        $this->doit_in_builddir("cp", "-rT", "/usr/share/gocode/pkg", "pkg");
     }
 }
 
@@ -160,6 +160,9 @@ sub build {
         $this->doit_in_builddir("ln", "-s", "$fullsoname", "$dsodir/$abisoname");
         $this->doit_in_builddir(
             "go", "install", "-x", "-v", "-buildmode=exe", "-compiler", "gccgo", "-linkshared", @_, get_targets());
+    } elsif (exists($ENV{DH_GOLANG_USE_SHLIBS})) {
+        $this->doit_in_builddir(
+            "go", "install", "-x", "-v", "-compiler", "gccgo", "-linkshared", @_, get_targets());
     } else {
         $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
     }
