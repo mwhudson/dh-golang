@@ -151,7 +151,7 @@ sub build {
             $el = "-Wl," . $el;
         }
         for my $target (@targets) {
-            $this->doit_in_builddir("rm", "-f", "$dsodir/$target");
+            $this->doit_in_builddir("rm", "-f", "$dsodir/$target.dsoname");
             $this->doit_in_builddir("rm", "-f", "$dsodir/$target.gox");
         }
         $this->doit_in_builddir(
@@ -201,11 +201,12 @@ sub install {
         doit('cp', "-a", @shlibs, $libdir);
         $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
         for my $t (get_targets()) {
-            my $src = "$dsodir/$t";
+            my $srcd = "$dsodir/${t}.dsoname";
+            my $srcg = "$dsodir/${t}.gox";
             my $dest = dirname("$destdir/usr/share/gocode/$dsodir/$t");
             $this->doit_in_builddir('mkdir', '-p', $dest);
-            $this->doit_in_builddir('cp', $src, $dest);
-            $this->doit_in_builddir('cp', "${src}.gox", $dest);
+            $this->doit_in_builddir('cp', $srcd, $dest);
+            $this->doit_in_builddir('cp', "$srcg", $dest);
         }
     }
 
