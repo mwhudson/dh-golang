@@ -113,9 +113,7 @@ sub configure {
 
     _link_contents('/usr/share/gocode/src', "$builddir/src");
 
-    if (exists($ENV{DH_GOLANG_SHLIB_NAME}) || exists($ENV{DH_GOLANG_USE_SHLIBS})) {
-        $this->doit_in_builddir("cp", "-rT", "/usr/share/gocode/pkg", "pkg");
-    }
+    $this->doit_in_builddir("cp", "-rT", "/usr/share/gocode/pkg", "pkg");
 }
 
 sub get_dsodir {
@@ -183,7 +181,7 @@ sub build_shared {
     my @targets = get_targets();
 
     for my $target (@targets) {
-        $this->doit_in_builddir("rm", "-f", "$dsodir/$target.dsoname");
+        $this->doit_in_builddir("rm", "-f", "$dsodir/$target.gox.dsoname");
         $this->doit_in_builddir("rm", "-f", "$dsodir/$target.gox");
     }
 
