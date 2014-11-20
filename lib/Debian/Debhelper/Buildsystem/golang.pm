@@ -138,57 +138,49 @@ sub get_targets {
     return @targets;
 }
 
-sub get_build_targets {
-
-    my $pkg;
-    my $imports;
-    my $libname;
-    my @result;
-
+sub get_libname_version {
     open (CONTROL, 'debian/control') ||
         error("cannot read debian/control: $!\n");
+
     while (<CONTROL>) {
         chomp;
         s/\s+$//;
         if (/^Package:\s*(.*)/) {
-            $pkg=$1;
-        }
-        if (/^X-Go-Import-Path:\s*(.*)$/) {
-            my $data = { pkg => $pkg };
-            my @gopkgs = split(/\s+/, $1);
-            $data->{"gopkgs"} = [ @gopkgs ];
-            my ($sover) = ($pkg =~ /[^0-9]([0-9]+)$/);
-            $libname = $pkg;
-            $libname =~ s/[-0-9]+$//;
-            $data->{"libname"} = $libname;
-            ($data->{"linkername"}) = ($libname =~ /^lib(.*)$/);
-            $data->{"basename"} = "$libname.so";
-            $data->{"soname"} = "$libname.so.$sover";
-            push @result, $data;
+            my $pkg=$1;
+            print($pkg, "\n");
+            if ($pkg =~ /^lib.*[0-9]$/) {
+                print($pkg, "!\n");
+                my ($libname, $sover) = ($pkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
+                my $r = {
+                    "libname" => $libname,
+                    "sover" => $sover,
+                };
+                close CONTROL;
+                return $r;
+            }
         }
     }
-    close CONTROL;
 
-    return @result;
+    close CONTROL;
+    return undef;
 }
 
-sub build_one {
+sub build_shared {
     my $this = shift;
-    my $d = shift;
-    my %data = %$d;
+    my $data = shift;
 
-    print Dumper \%data;
+    my $libname = $data->{libname};
+    my $sover = $data->{sover};
 
-    my @ldflags = ("-soname", $data{soname});
-    my @gopkgs = @{$data{gopkgs}};
+    my $soname = "lib${libname}.so.${sover}";
+    my @ldflags = ("-soname", $soname);
     my $dsodir = get_dsodir();
 
     for my $el (@ldflags) {
         $el = "-Wl," . $el;
     }
 
-    my $output = qx(go list @gopkgs);
-    my @targets = split(/\n/, $output);
+    my @targets = get_targets();
 
     for my $target (@targets) {
         $this->doit_in_builddir("rm", "-f", "$dsodir/$target.dsoname");
@@ -197,25 +189,23 @@ sub build_one {
 
     $this->doit_in_builddir(
         "go", "install", "-v", "-x",
-        "-libname", $data{"linkername"},
+        "-libname", $libname,
         "-compiler", "gccgo",
         "-gccgoflags", join(" ", @ldflags),
-        "-buildmode=shared", @gopkgs);
-    $this->doit_in_builddir("mv", "$dsodir/$data{basename}", "$dsodir/$data{soname}");
-    $this->doit_in_builddir("ln", "-s", "$data{soname}", "$dsodir/$data{basename}");
+        "-buildmode=shared", @targets);
+    $this->doit_in_builddir("mv", "$dsodir/lib$libname.so", "$dsodir/$soname");
+    $this->doit_in_builddir("ln", "-s", "$soname", "$dsodir/lib$libname.so");
 }
 
 sub build {
     my $this = shift;
 
-    my @data = get_build_targets();
+    my $data = get_libname_version();
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
 
-    if (@data > 0) {
-        foreach my $pkg ( @data ) {
-            $this->build_one(\%$pkg);
-        }
+    if ($data) {
+        $this->build_shared($data);
     } elsif (exists($ENV{DH_GOLANG_LINK_SHARED})) {
         $this->doit_in_builddir(
             "go", "install", "-x", "-v", "-compiler", "gccgo", "-build=linkshared", @_, get_targets());
