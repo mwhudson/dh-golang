@@ -1,6 +1,9 @@
 package Debian::Debhelper::Buildsystem::golang;
 
 use strict;
+
+use Data::Dumper;
+
 use base 'Debian::Debhelper::Buildsystem';
 use Debian::Debhelper::Dh_Lib;
 use File::Basename qw(dirname);
@@ -135,39 +138,87 @@ sub get_targets {
     return @targets;
 }
 
+sub get_build_targets {
+
+    my $pkg;
+    my $imports;
+    my $libname;
+    my @result;
+
+    open (CONTROL, 'debian/control') ||
+        error("cannot read debian/control: $!\n");
+    while (<CONTROL>) {
+        chomp;
+        s/\s+$//;
+        if (/^Package:\s*(.*)/) {
+            $pkg=$1;
+        }
+        if (/^X-Go-Import-Path:\s*(.*)$/) {
+            my $data = { pkg => $pkg };
+            my @gopkgs = split(/\s+/, $1);
+            $data->{"gopkgs"} = [ @gopkgs ];
+            my ($sover) = ($pkg =~ /[^0-9]([0-9]+)$/);
+            $libname = $pkg;
+            $libname =~ s/[-0-9]+$//;
+            $data->{"libname"} = $libname;
+            ($data->{"linkername"}) = ($libname =~ /^lib(.*)$/);
+            $data->{"basename"} = "$libname.so";
+            $data->{"soname"} = "$libname.so.$sover";
+            push @result, $data;
+        }
+    }
+    close CONTROL;
+
+    return @result;
+}
+
+sub build_one {
+    my $this = shift;
+    my $d = shift;
+    my %data = %$d;
+
+    print Dumper \%data;
+
+    my @ldflags = ("-soname", $data{soname});
+    my @gopkgs = @{$data{gopkgs}};
+    my $dsodir = get_dsodir();
+
+    for my $el (@ldflags) {
+        $el = "-Wl," . $el;
+    }
+
+    my $output = qx(go list @gopkgs);
+    my @targets = split(/\n/, $output);
+
+    for my $target (@targets) {
+        $this->doit_in_builddir("rm", "-f", "$dsodir/$target.dsoname");
+        $this->doit_in_builddir("rm", "-f", "$dsodir/$target.gox");
+    }
+
+    $this->doit_in_builddir(
+        "go", "install", "-v", "-x",
+        "-libname", $data{"linkername"},
+        "-compiler", "gccgo",
+        "-gccgoflags", join(" ", @ldflags),
+        "-buildmode=shared", @gopkgs);
+    $this->doit_in_builddir("mv", "$dsodir/$data{basename}", "$dsodir/$data{soname}");
+    $this->doit_in_builddir("ln", "-s", "$data{soname}", "$dsodir/$data{basename}");
+}
+
 sub build {
     my $this = shift;
-    my $builddir = $this->get_builddir();
+
+    my @data = get_build_targets();
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
-    if (exists($ENV{DH_GOLANG_SHLIB_NAME})) {
-        my $basesoname = "lib$ENV{DH_GOLANG_SHLIB_NAME}.so";
-        my $abisoname = "$basesoname.$ENV{DH_GOLANG_SHLIB_ABIREV}";
-        my $fullsoname = "$abisoname.$ENV{DH_GOLANG_SHLIB_SUBREV}";
-        my $dsodir = get_dsodir();
-        my @ldflags = ("-soname", $abisoname);
-        my @targets = get_targets();
-        for my $el (@ldflags) {
-            $el = "-Wl," . $el;
+
+    if (@data > 0) {
+        foreach my $pkg ( @data ) {
+            $this->build_one(\%$pkg);
         }
-        for my $target (@targets) {
-            $this->doit_in_builddir("rm", "-f", "$dsodir/$target.dsoname");
-            $this->doit_in_builddir("rm", "-f", "$dsodir/$target.gox");
-        }
+    } elsif (exists($ENV{DH_GOLANG_LINK_SHARED})) {
         $this->doit_in_builddir(
-            "go", "install", "-v", "-x",
-            "-dsoname", $ENV{DH_GOLANG_SHLIB_NAME},
-            "-compiler", "gccgo",
-            "-gccgoflags", join(" ", @ldflags),
-            "-buildmode=shared", @_, @targets);
-        $this->doit_in_builddir("mv", "$dsodir/$basesoname", "$dsodir/$fullsoname");
-        $this->doit_in_builddir("ln", "-s", "$fullsoname", "$dsodir/$basesoname");
-        $this->doit_in_builddir("ln", "-s", "$fullsoname", "$dsodir/$abisoname");
-        $this->doit_in_builddir(
-            "go", "install", "-x", "-v", "-buildmode=exe", "-compiler", "gccgo", "-linkshared", @_, get_targets());
-    } elsif (exists($ENV{DH_GOLANG_USE_SHLIBS})) {
-        $this->doit_in_builddir(
-            "go", "install", "-x", "-v", "-compiler", "gccgo", "-linkshared", @_, get_targets());
+            "go", "install", "-x", "-v", "-compiler", "gccgo", "-build=linkshared", @_, get_targets());
     } else {
         $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
     }
@@ -201,7 +252,7 @@ sub install {
         doit('cp', "-a", @shlibs, $libdir);
         $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
         for my $t (get_targets()) {
-            my $srcd = "$dsodir/${t}.dsoname";
+            my $srcd = "$dsodir/${t}.gox.dsoname";
             my $srcg = "$dsodir/${t}.gox";
             my $dest = dirname("$destdir/usr/share/gocode/$dsodir/$t");
             $this->doit_in_builddir('mkdir', '-p', $dest);
