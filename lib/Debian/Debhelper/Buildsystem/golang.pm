@@ -124,9 +124,13 @@ sub shlibdir {
     my @targets = get_targets();
     # other things will blow up if not every target has the same
     # SharedLibDir so let's not worry about that here.
-    my $output = qx(go list -compiler gccgo -buildmode linkshared -f '{{ .SharedLibDir }}' $targets[0]);
-    chomp($output);
-    return $output;
+    for my $t (@targets) {
+        my $output = qx(go list -compiler gccgo -buildmode linkshared -f '{{ .SharedLibDir }}' $t);
+        chomp($output);
+        if ($output) {
+            return $output;
+        }
+    }
 }
 
 sub get_targets {
