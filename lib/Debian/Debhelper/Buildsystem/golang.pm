@@ -186,10 +186,8 @@ sub build_shared {
     }
 
     $this->doit_in_builddir(
-        "go", "install", "-v", "-x",
-        "-libname", $libname,
-        "-compiler", "gccgo",
-        "-gccgoflags", join(" ", @ldflags),
+        "go", "install", "-v", "-x", "-libname", $libname, "-compiler", "gccgo",
+        "-rpath", "", "-gccgoflags", join(" ", @ldflags),
         "-buildmode=shared", @targets);
     $this->doit_in_builddir("mv", "$dsodir/lib$libname.so", "$dsodir/$soname");
     $this->doit_in_builddir("ln", "-s", "$soname", "$dsodir/lib$libname.so");
@@ -243,9 +241,11 @@ sub install {
             my $srcd = "$dsodir/${t}.gox.dsoname";
             my $srcg = "$dsodir/${t}.gox";
             my $dest = dirname("$destdir/usr/share/gocode/$dsodir/$t");
-            $this->doit_in_builddir('mkdir', '-p', $dest);
-            $this->doit_in_builddir('cp', $srcd, $dest);
-            $this->doit_in_builddir('cp', "$srcg", $dest);
+            if (-f $srcg) {
+                $this->doit_in_builddir('mkdir', '-p', $dest);
+                $this->doit_in_builddir('cp', $srcd, $dest);
+                $this->doit_in_builddir('cp', $srcg, $dest);
+            }
         }
     }
 
