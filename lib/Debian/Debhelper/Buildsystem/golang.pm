@@ -1,16 +1,12 @@
 package Debian::Debhelper::Buildsystem::golang;
 
 use strict;
-
-use Data::Dumper;
-
 use base 'Debian::Debhelper::Buildsystem';
-use Debian::Debhelper::Dh_Lib;
-use File::Basename qw(dirname);
+use Debian::Debhelper::Dh_Lib; 
 use File::Copy; # in core since 5.002
 use File::Path qw(make_path); # in core since 5.001
 use File::Find; # in core since 5
-use Cwd ();
+use File::Spec;
 
 sub DESCRIPTION {
     "Go"
@@ -113,13 +109,24 @@ sub configure {
 
     _link_contents('/usr/share/gocode/src', "$builddir/src");
 
+    # XXX this needs to be somewhere in /usr/lib
     $this->doit_in_builddir("cp", "-rT", "/usr/share/gocode/pkg", "pkg");
 }
 
-sub get_dsodir {
-    chomp(my $GOOS = qx(go env GOOS));
-    chomp(my $GOARCH = qx(go env GOARCH));
-    return "pkg/shared_gccgo_${GOOS}_${GOARCH}"
+sub goxfile {
+    my $target = shift;
+    my $output = qx(go list -compiler gccgo -buildmode linkshared -f '{{ .ExportData }}' $target);
+    chomp($output);
+    return $output;
+}
+
+sub shlibdir {
+    my @targets = get_targets();
+    # other things will blow up if not every target has the same
+    # SharedLibDir so let's not worry about that here.
+    my $output = qx(go list -compiler gccgo -buildmode linkshared -f '{{ .SharedLibDir }}' $targets[0]);
+    chomp($output);
+    return $output;
 }
 
 sub get_targets {
@@ -145,9 +152,7 @@ sub get_libname_version {
         s/\s+$//;
         if (/^Package:\s*(.*)/) {
             my $pkg=$1;
-            print($pkg, "\n");
             if ($pkg =~ /^lib.*[0-9]$/) {
-                print($pkg, "!\n");
                 my ($libname, $sover) = ($pkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
                 my $r = {
                     "libname" => $libname,
@@ -172,7 +177,7 @@ sub build_shared {
 
     my $soname = "lib${libname}.so.${sover}";
     my @ldflags = ("-soname", $soname);
-    my $dsodir = get_dsodir();
+    my $dsodir = shlibdir();
 
     for my $el (@ldflags) {
         $el = "-Wl," . $el;
@@ -181,8 +186,10 @@ sub build_shared {
     my @targets = get_targets();
 
     for my $target (@targets) {
-        $this->doit_in_builddir("rm", "-f", "$dsodir/$target.gox.dsoname");
-        $this->doit_in_builddir("rm", "-f", "$dsodir/$target.gox");
+        my $goxfile = goxfile($target);
+        if ($goxfile && -f $goxfile) {
+            $this->doit_in_builddir("rm", <${goxfile}*>);
+        }
     }
 
     $this->doit_in_builddir(
@@ -196,12 +203,12 @@ sub build_shared {
 sub build {
     my $this = shift;
 
-    my $data = get_libname_version();
+    my $libname_version = get_libname_version();
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
 
-    if ($data) {
-        $this->build_shared($data);
+    if ($libname_version) {
+        $this->build_shared($libname_version);
     } elsif (exists($ENV{DH_GOLANG_LINK_SHARED})) {
         $this->doit_in_builddir(
             "go", "install", "-x", "-v", "-compiler", "gccgo", "-build=linkshared", @_, get_targets());
@@ -214,6 +221,7 @@ sub test {
     my $this = shift;
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
+
     $this->doit_in_builddir("go", "test", "-v", @_, get_targets());
 }
 
@@ -221,30 +229,31 @@ sub install {
     my $this = shift;
     my $destdir = shift;
     my $builddir = $this->get_builddir();
-    my $dsodir = get_dsodir();
+
+    $ENV{GOPATH} = $this->{cwd} . '/' . $builddir;
 
     my @binaries = <$builddir/bin/*>;
+
     if (@binaries > 0) {
         $this->doit_in_builddir('mkdir', '-p', "$destdir/usr");
         $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
     }
 
-    my @shlibs = <$builddir/$dsodir/*.so*>;
+    my $shlibdir = shlibdir();
+    my @shlibs = <$shlibdir/*.so*>;
 
     if (@shlibs > 0) {
         my $libdir = "$destdir/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH");
-        chomp($libdir);
-        $this->doit_in_builddir('mkdir', '-p', $libdir);
+        doit('mkdir', '-p', $libdir);
         doit('cp', "-a", @shlibs, $libdir);
-        $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
         for my $t (get_targets()) {
-            my $srcd = "$dsodir/${t}.gox.dsoname";
-            my $srcg = "$dsodir/${t}.gox";
-            my $dest = dirname("$destdir/usr/share/gocode/$dsodir/$t");
-            if (-f $srcg) {
+            my $goxfile = goxfile($t);
+            if ($goxfile) {
+                my $relpath = File::Spec->abs2rel($goxfile, $builddir);
+                # XXX somewhere in usr/lib/
+                my $dest = dirname("$destdir/usr/share/gocode/$relpath");
                 $this->doit_in_builddir('mkdir', '-p', $dest);
-                $this->doit_in_builddir('cp', $srcd, $dest);
-                $this->doit_in_builddir('cp', $srcg, $dest);
+                $this->doit_in_builddir('cp', <${goxfile}*>, $dest);
             }
         }
     }
