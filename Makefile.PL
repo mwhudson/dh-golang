@@ -4,6 +4,7 @@ name 'dh-golang';
 version '1.0';
 
 install_script 'dh_golang';
+install_script 'dh_makegolangshlibs';
 
 #postamble <<'END_OF_MAKEFILE';
 #install:: extra_install

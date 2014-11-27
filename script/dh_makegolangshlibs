@@ -1,0 +1,66 @@
+#!/usr/bin/perl -w
+
+=head1 NAME
+
+dh_makegolangshlibs - Generates golang-specific shlibs files and substvars
+
+=cut
+
+use strict;
+use Debian::Debhelper::Dh_Lib;
+
+=head1 SYNOPSIS
+
+B<dh_makegolangshlibs> [S<I<debhelper options>>]
+
+=head1 DESCRIPTION
+
+B<dh_makegolangshlibs> is a debhelper program which generates a
+substvar and shlibs file to enable packages depending on go shared
+libraries to conveniently depend on the ABI hash of the library rather
+than just the soversion.  It replaces dh_makeshlibs in the usual dh
+sequences.
+
+=head1 NOTES
+
+The best way to invoke B<dh_makegolangshlibs> is by using B<dh --with=golang>.
+
+=cut
+
+init();
+
+############################################################################
+# Generate ...
+############################################################################
+
+foreach my $pkg (@{$dh{DOPACKAGES}}) {
+    if ($pkg =~ /^lib.*[0-9]$/) {
+        my ($libname, $sover) = ($pkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
+	my $tmp=tmpdir($pkg);
+        if (! -d "$tmp/DEBIAN") {
+            doit("install","-d","$tmp/DEBIAN");
+        }
+        my $sofile="$tmp/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/lib${libname}.so.${sover}";
+        complex_doit("objcopy -j .go_export '$sofile' tmp.gox 2>/dev/null");
+        my $abihash = qx(cat tmp.gox | sha1sum);
+        doit("rm tmp.gox");
+        $abihash = (split(/ /, $abihash))[0];
+        my $provides = "$pkg-$abihash";
+        addsubstvar($pkg, "golang:Provides", $provides);
+        complex_doit("echo 'lib$libname $sover $provides' >>$tmp/DEBIAN/shlibs");
+        autoscript($pkg,"postinst","postinst-makeshlibs");
+        autoscript($pkg,"postrm","postrm-makeshlibs");
+    }
+}
+
+=head1 SEE ALSO
+
+dh(1)
+
+=head1 AUTHORS
+
+Michael Hudson-Doyle <michael.hudson@canonical.com>
+
+=cut
+
+# vim:ts=4:sw=4:et
