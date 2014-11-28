@@ -177,6 +177,14 @@ sub get_libname_version {
     return undef;
 }
 
+sub buildX {
+    if ($dh{VERBOSE}) {
+        return ("-x");
+    } else {
+        return ();
+    }
+}
+
 sub build_shared {
     my $this = shift;
     my $data = shift;
@@ -202,7 +210,7 @@ sub build_shared {
     }
 
     $this->doit_in_builddir(
-        "go", "install", "-v", "-x", "-libname", $libname, "-compiler", "gccgo",
+        "go", "install", "-v", buildX(), "-libname", $libname, "-compiler", "gccgo",
         "-rpath", "", "-gccgoflags", join(" ", @ldflags),
         "-buildmode=shared", @targets);
     $this->doit_in_builddir("mv", "$dsodir/lib$libname.so", "$dsodir/$soname");
@@ -220,7 +228,7 @@ sub build {
         $this->build_shared($libname_version);
     } elsif (exists($ENV{DH_GOLANG_LINK_SHARED})) {
         $this->doit_in_builddir(
-            "go", "install", "-x", "-v", "-compiler", "gccgo", "-build=linkshared", @_, get_targets());
+            "go", "install", buildX(), "-v", "-compiler", "gccgo", "-build=linkshared", @_, get_targets());
     } else {
         $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
     }
