@@ -51,6 +51,8 @@ sub configure {
 
     my $builddir = $this->get_builddir();
 
+    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
+
     ############################################################################
     # Copy all .go files into the build directory $builddir/src/$go_package
     ############################################################################
@@ -109,8 +111,11 @@ sub configure {
 
     _link_contents('/usr/share/gocode/src', "$builddir/src");
 
-    # XXX this needs to be somewhere in /usr/lib
-    $this->doit_in_builddir("cp", "-rT", "/usr/share/gocode/pkg", "pkg");
+    my $export_dir_src = "/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/go-export-data";
+    if (-d $export_dir_src) {
+        doit("mkdir", "-p", dirname(shlibdir()));
+        $this->doit_in_builddir("cp", "-rT", $export_dir_src, shlibdir());
+    }
 }
 
 sub goxfile {
@@ -253,9 +258,8 @@ sub install {
         for my $t (get_targets()) {
             my $goxfile = goxfile($t);
             if ($goxfile) {
-                my $relpath = File::Spec->abs2rel($goxfile, $builddir);
-                # XXX somewhere in usr/lib/
-                my $dest = dirname("$destdir/usr/share/gocode/$relpath");
+                my $relpath = File::Spec->abs2rel($goxfile, $shlibdir);
+                my $dest = dirname("$libdir/go-export-data/$relpath");
                 $this->doit_in_builddir('mkdir', '-p', $dest);
                 $this->doit_in_builddir('cp', <${goxfile}*>, $dest);
             }
