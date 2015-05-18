@@ -44,14 +44,19 @@ sub _link_contents {
     }
 }
 
+sub _set_GOPATH {
+    my $this = shift;
+    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir() . '/this:' . $this->{cwd} . '/' . $this->get_builddir() . '/deps';
+}
+
 sub configure {
     my $this = shift;
 
     $this->mkdir_builddir();
 
-    my $builddir = $this->get_builddir();
+    $this->_set_GOPATH();
 
-    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
+    my $builddir = $this->get_builddir();
 
     ############################################################################
     # Copy all .go files into the build directory $builddir/src/$go_package
@@ -83,7 +88,7 @@ sub configure {
     }, '.');
 
     for my $source (@sourcefiles) {
-        my $dest = "$builddir/src/$ENV{DH_GOPKG}/$source";
+        my $dest = "$builddir/this/src/$ENV{DH_GOPKG}/$source";
         make_path(dirname($dest));
         # Avoid re-copying the files, this would update their timestamp and
         # make go(1) recompile them.
@@ -96,7 +101,7 @@ sub configure {
     # buildroot.
     ############################################################################
 
-    # NB: The naïve idea of just setting GOPATH=$builddir:/usr/share/godoc does
+    # NB: The naïve idea of just setting GOPATH=$builddir:/usr/share/gocode does
     # not work. Let’s call the two paths in $GOPATH components. go(1), when
     # installing a package, such as github.com/Debian/dcs/cmd/..., will also
     # install the compiled dependencies, e.g. github.com/mstap/godebiancontrol.
@@ -109,31 +114,25 @@ sub configure {
     # Therefore, we just work with a single component that is under our control
     # and symlink all the sources into that component ($builddir).
 
-    _link_contents('/usr/share/gocode/src', "$builddir/src");
+    make_path("$builddir/deps/src");
+    _link_contents('/usr/share/gocode/src', "$builddir/deps/src");
 
-    my $export_dir_src = "/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/go-export-data";
-    if (-d $export_dir_src) {
-        doit("mkdir", "-p", dirname(shlibdir()));
-        $this->doit_in_builddir("cp", "-rT", $export_dir_src, shlibdir());
+    my $installed_shlib_data_dir = "/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/gocode/pkg";
+    if (-d $installed_shlib_data_dir) {
+        # Should this symlink instead?  Could start to use a lot of disk with lots of packages installed.
+        $this->doit_in_builddir("cp", "-rT", $installed_shlib_data_dir, "deps/pkg");
     }
 }
 
-sub goxfile {
-    my $target = shift;
-    my $output = qx(go list -compiler gccgo -buildmode linkshared -f '{{ .ExportData }}' $target);
-    chomp($output);
-    return $output;
-}
-
-sub shlibdir {
+sub shlib {
     my @targets = get_targets();
     # other things will blow up if not every target has the same
-    # SharedLibDir so let's not worry about that here.
+    # PkgTargetRoot so let's not worry about that here.
     for my $t (@targets) {
-        my $output = qx(go list -compiler gccgo -buildmode linkshared -f '{{ .SharedLibDir }}' $t);
-        chomp($output);
-        if ($output) {
-            return $output;
+        my $shlib = qx(go list -linkshared -f '{{ .Shlib }}' $t);
+        chomp($shlib);
+        if ($shlib) {
+            return $shlib;
         }
     }
 }
@@ -152,7 +151,7 @@ sub get_targets {
     return @targets;
 }
 
-sub get_libname_version {
+sub get_libpkg_name {
     open (CONTROL, 'debian/control') ||
         error("cannot read debian/control: $!\n");
 
@@ -162,19 +161,27 @@ sub get_libname_version {
         if (/^Package:\s*(.*)/) {
             my $pkg=$1;
             if ($pkg =~ /^lib.*[0-9]$/) {
-                my ($libname, $sover) = ($pkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
-                my $r = {
-                    "libname" => $libname,
-                    "sover" => $sover,
-                };
                 close CONTROL;
-                return $r;
+                return $pkg;
             }
         }
     }
 
     close CONTROL;
     return undef;
+}
+
+sub get_libname_version {
+    my $pkg = get_libpkg_name();
+
+    if (!$pkg) { return undef; }
+
+    my ($libname, $sover) = ($pkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
+    my $r = {
+        "libname" => $libname,
+        "sover" => $sover,
+    };
+    return $r;
 }
 
 sub buildX {
@@ -193,28 +200,27 @@ sub build_shared {
     my $sover = $data->{sover};
 
     my $soname = "lib${libname}.so.${sover}";
-    my @ldflags = ("-soname", $soname);
-    my $dsodir = shlibdir();
-
-    for my $el (@ldflags) {
-        $el = "-Wl," . $el;
-    }
+    # Enough quoting to blow your arm off.
+    my @ldflags = ("-v -r '' -extldflags=-Wl,-soname=$soname");
 
     my @targets = get_targets();
 
-    for my $target (@targets) {
-        my $goxfile = goxfile($target);
-        if ($goxfile && -f $goxfile) {
-            $this->doit_in_builddir("rm", <${goxfile}*>);
-        }
-    }
+    # for my $target (@targets) {
+    #     my $goxfile = goxfile($target);
+    #     if ($goxfile && -f $goxfile) {
+    #         $this->doit_in_builddir("rm", <${goxfile}*>);
+    #     }
+    # }
 
     $this->doit_in_builddir(
-        "go", "install", "-v", buildX(), "-libname", $libname, "-compiler", "gccgo",
-        "-rpath", "", "-gccgoflags", join(" ", @ldflags),
-        "-buildmode=shared", @targets);
-    $this->doit_in_builddir("mv", "$dsodir/lib$libname.so", "$dsodir/$soname");
-    $this->doit_in_builddir("ln", "-s", "$soname", "$dsodir/lib$libname.so");
+        "go", "install", "-v", buildX(),
+        "-ldflags", join(" ", @ldflags),
+        "-buildmode=shared", "-linkshared", @targets);
+    my $shlib = shlib();
+    my $dsodir = dirname($shlib);
+
+    $this->doit_in_builddir("mv", "$shlib", "$dsodir/$soname");
+    $this->doit_in_builddir("ln", "-s", "$soname", "$shlib");
 }
 
 sub build {
@@ -222,10 +228,12 @@ sub build {
 
     my $libname_version = get_libname_version();
 
-    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
+    $this->_set_GOPATH();
 
     if ($libname_version) {
         $this->build_shared($libname_version);
+        $this->doit_in_builddir(
+            "go", "install", buildX(), "-v", "-buildmode=exe", "-linkshared", @_, get_targets());
     } elsif (exists($ENV{DH_GOLANG_LINK_SHARED})) {
         $this->doit_in_builddir(
             "go", "install", buildX(), "-v", "-compiler", "gccgo", "-build=linkshared", @_, get_targets());
@@ -237,7 +245,7 @@ sub build {
 sub test {
     my $this = shift;
 
-    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
+    $this->_set_GOPATH();
 
     $this->doit_in_builddir("go", "test", "-v", @_, get_targets());
 }
@@ -247,7 +255,7 @@ sub install {
     my $destdir = shift;
     my $builddir = $this->get_builddir();
 
-    $ENV{GOPATH} = $this->{cwd} . '/' . $builddir;
+    $this->_set_GOPATH();
 
     my @binaries = <$builddir/bin/*>;
 
@@ -256,28 +264,31 @@ sub install {
         $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
     }
 
-    my $shlibdir = shlibdir();
-    my @shlibs = <$shlibdir/*.so*>;
+    my $shlib = shlib();
 
-    if (@shlibs > 0) {
-        my $libdir = "$destdir/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH");
+    if ($shlib) {
+        my $dsodir = dirname($shlib);
+        my $data = get_libname_version();
+        my $libname = $data->{libname};
+        my $sover = $data->{sover};
+        my $soname = "lib${libname}.so.${sover}";
+        my $libpkgname = get_libpkg_name();
+        my $finallibdir = "/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH");
+        my $libdir = "$destdir/../$libpkgname" . $finallibdir;
+
         doit('mkdir', '-p', $libdir);
-        doit('cp', "-a", @shlibs, $libdir);
-        for my $t (get_targets()) {
-            my $goxfile = goxfile($t);
-            if ($goxfile) {
-                my $relpath = File::Spec->abs2rel($goxfile, $shlibdir);
-                my $dest = dirname("$libdir/go-export-data/$relpath");
-                $this->doit_in_builddir('mkdir', '-p', $dest);
-                $this->doit_in_builddir('cp', <${goxfile}*>, $dest);
-            }
-        }
+        doit('mv', "$dsodir/$soname", $libdir);
+
+        $this->doit_in_builddir("ln", "-sf", "$finallibdir/$soname", "$shlib");
+        my $dest_pkg = "$destdir/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/gocode/pkg";
+        $this->doit_in_builddir('mkdir', '-p', $dest_pkg);
+        $this->doit_in_builddir('cp', '-r', '-T', "this/pkg", $dest_pkg);
     }
 
     # Path to the src/ directory within $destdir
-    my $dest_src = "$destdir/usr/share/gocode/src/$ENV{DH_GOPKG}";
+    my $dest_src = "$destdir/usr/share/gocode/src";
     $this->doit_in_builddir('mkdir', '-p', $dest_src);
-    $this->doit_in_builddir('cp', '-r', '-T', "src/$ENV{DH_GOPKG}", $dest_src);
+    $this->doit_in_builddir('cp', '-r', '-T', "this/src", $dest_src);
 }
 
 sub clean {
