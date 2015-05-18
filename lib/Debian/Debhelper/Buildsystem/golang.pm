@@ -111,8 +111,11 @@ sub configure {
     # /usr/share/gocode/pkg/linux_amd64/github.com/mstap/godebiancontrol, which
     # will obviously not succeed due to permission errors.
     #
-    # Therefore, we just work with a single component that is under our control
-    # and symlink all the sources into that component ($builddir).
+    # Therefore, we set GOPATH to have three components:
+    # $builddir/this, into which is copied the source from the Go
+    # package being build, $builddir/deps, into which is symlinked the
+    # currently installed source from /usr/share/gocode and shared
+    # libraries from /usr/lib/$triplet/gocode.
 
     make_path("$builddir/deps/src");
     _link_contents('/usr/share/gocode/src', "$builddir/deps/src");
@@ -120,7 +123,7 @@ sub configure {
     my $installed_shlib_data_dir = "/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/gocode/pkg";
     if (-d $installed_shlib_data_dir) {
         # Should this symlink instead?  Could start to use a lot of disk with lots of packages installed.
-        $this->doit_in_builddir("cp", "-rT", $installed_shlib_data_dir, "deps/pkg");
+        $this->doit_in_builddir("ln", "-sT", $installed_shlib_data_dir, "deps/pkg");
     }
 }
 
@@ -205,6 +208,10 @@ sub build_shared {
 
     my @targets = get_targets();
 
+    if (!$ENV{DH_GOLANG_BUILDPKG} && !$ENV{DH_GOLANG_EXCLUDES}) {
+        @targets = ( "$ENV{DH_GOPKG}/..." );
+    }
+
     # for my $target (@targets) {
     #     my $goxfile = goxfile($target);
     #     if ($goxfile && -f $goxfile) {
@@ -279,10 +286,14 @@ sub install {
         doit('mkdir', '-p', $libdir);
         doit('mv', "$dsodir/$soname", $libdir);
 
+        $this->doit_in_builddir('find', '-name', "*.so", "-exec", "ls", "-l", "{}", ";");
         $this->doit_in_builddir("ln", "-sf", "$finallibdir/$soname", "$shlib");
+        $this->doit_in_builddir('find', '-name', "*.so", "-exec", "ls", "-l", "{}", ";");
         my $dest_pkg = "$destdir/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/gocode/pkg";
         $this->doit_in_builddir('mkdir', '-p', $dest_pkg);
+        $this->doit_in_builddir('ls', '-lR', "this/pkg", $dest_pkg);
         $this->doit_in_builddir('cp', '-r', '-T', "this/pkg", $dest_pkg);
+        $this->doit_in_builddir('ls', '-lR', "this/pkg", $dest_pkg);
     }
 
     # Path to the src/ directory within $destdir
