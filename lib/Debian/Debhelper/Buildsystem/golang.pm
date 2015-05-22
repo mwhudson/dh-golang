@@ -46,15 +46,13 @@ sub _link_contents {
 
 sub _set_GOPATH {
     my $this = shift;
-    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir() . '/this:' . $this->{cwd} . '/' . $this->get_builddir() . '/deps';
+    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir() . ':' . $this->{cwd} . '/' . $this->get_builddir() . '/shlibdeps' . ':' . $this->{cwd} . '/' . $this->get_builddir() . '/srcdeps';
 }
 
 sub configure {
     my $this = shift;
 
     $this->mkdir_builddir();
-
-    $this->_set_GOPATH();
 
     my $builddir = $this->get_builddir();
 
@@ -88,12 +86,12 @@ sub configure {
     }, '.');
 
     for my $source (@sourcefiles) {
-        my $dest = "$builddir/this/src/$ENV{DH_GOPKG}/$source";
+        my $dest = "$builddir/src/$ENV{DH_GOPKG}/$source";
         make_path(dirname($dest));
         # Avoid re-copying the files, this would update their timestamp and
         # make go(1) recompile them.
         next if -f $dest;
-        copy($source, $dest) or error("Could not copy $source to $dest: $!");
+        doit("cp", "-a", $source, $dest) or error("Could not copy $source to $dest: $!");
     }
 
     ############################################################################
@@ -111,20 +109,20 @@ sub configure {
     # /usr/share/gocode/pkg/linux_amd64/github.com/mstap/godebiancontrol, which
     # will obviously not succeed due to permission errors.
     #
-    # Therefore, we set GOPATH to have three components:
-    # $builddir/this, into which is copied the source from the Go
-    # package being build, $builddir/deps, into which is symlinked the
-    # currently installed source from /usr/share/gocode and shared
-    # libraries from /usr/lib/$triplet/gocode.
+    # Therefore, we set GOPATH to have three components: $builddir, into which
+    # is copied the source from the Go package being build, $builddir/shlibdeps,
+    # into which is symlinked the installed libraries that are already built
+    # into shared libraries and $builddir/srcdeps into which is symlinked the
+    # source of installed libraries that are not already built.
 
-    make_path("$builddir/deps/src");
-    _link_contents('/usr/share/gocode/src', "$builddir/deps/src");
 
-    my $installed_shlib_data_dir = "/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/gocode/pkg";
+    my $installed_shlib_data_dir = "/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/gocode";
     if (-d $installed_shlib_data_dir) {
-        # Should this symlink instead?  Could start to use a lot of disk with lots of packages installed.
-        $this->doit_in_builddir("ln", "-sT", $installed_shlib_data_dir, "deps/pkg");
+        $this->doit_in_builddir("ln", "-sT", "$installed_shlib_data_dir", "shlibdeps");
     }
+
+    make_path("$builddir/srcdeps/src");
+    _link_contents('/usr/share/gocode/src', "$builddir/srcdeps/src");
 }
 
 sub shlib {
@@ -164,6 +162,26 @@ sub get_libpkg_name {
         if (/^Package:\s*(.*)/) {
             my $pkg=$1;
             if ($pkg =~ /^lib.*[0-9]$/) {
+                close CONTROL;
+                return $pkg;
+            }
+        }
+    }
+
+    close CONTROL;
+    return undef;
+}
+
+sub get_devpkg_name {
+    open (CONTROL, 'debian/control') ||
+        error("cannot read debian/control: $!\n");
+
+    while (<CONTROL>) {
+        chomp;
+        s/\s+$//;
+        if (/^Package:\s*(.*)/) {
+            my $pkg=$1;
+            if ($pkg =~ /-dev$/) {
                 close CONTROL;
                 return $pkg;
             }
@@ -237,10 +255,14 @@ sub build {
 
     $this->_set_GOPATH();
 
+    if ($dh{VERBOSE}) {
+        printf("GOPATH is %s\n", $ENV{GOPATH});
+    }
+    
     if ($libname_version) {
         $this->build_shared($libname_version);
         $this->doit_in_builddir(
-            "go", "install", buildX(), "-v", "-buildmode=exe", "-linkshared", @_, get_targets());
+            "go", "install", buildX(), "-v", "-ldflags=-v -r ''", "-buildmode=exe", "-linkshared", @_, get_targets());
     } elsif (exists($ENV{DH_GOLANG_LINK_SHARED})) {
         $this->doit_in_builddir(
             "go", "install", buildX(), "-v", "-compiler", "gccgo", "-build=linkshared", @_, get_targets());
@@ -281,25 +303,21 @@ sub install {
         my $soname = "lib${libname}.so.${sover}";
         my $libpkgname = get_libpkg_name();
         my $finallibdir = "/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH");
-        my $libdir = "$destdir/../$libpkgname" . $finallibdir;
+        my $libdir = tmpdir($libpkgname) . $finallibdir;
 
         doit('mkdir', '-p', $libdir);
         doit('mv', "$dsodir/$soname", $libdir);
 
-        $this->doit_in_builddir('find', '-name', "*.so", "-exec", "ls", "-l", "{}", ";");
         $this->doit_in_builddir("ln", "-sf", "$finallibdir/$soname", "$shlib");
-        $this->doit_in_builddir('find', '-name', "*.so", "-exec", "ls", "-l", "{}", ";");
-        my $dest_pkg = "$destdir/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/gocode/pkg";
-        $this->doit_in_builddir('mkdir', '-p', $dest_pkg);
-        $this->doit_in_builddir('ls', '-lR', "this/pkg", $dest_pkg);
-        $this->doit_in_builddir('cp', '-r', '-T', "this/pkg", $dest_pkg);
-        $this->doit_in_builddir('ls', '-lR', "this/pkg", $dest_pkg);
+        my $dest_pkg = tmpdir(get_devpkg_name()) . $finallibdir . "/gocode/";
+        doit('mkdir', '-p', $dest_pkg);
+        $this->doit_in_builddir('cp', '-r', "pkg", "src", "../" . $dest_pkg);
+    } else {
+        # Path to the src/ directory within $destdir
+        my $dest_src = "$destdir/usr/share/gocode/src";
+        $this->doit_in_builddir('mkdir', '-p', $dest_src);
+        $this->doit_in_builddir('cp', '-r', '-T', "src", $dest_src);
     }
-
-    # Path to the src/ directory within $destdir
-    my $dest_src = "$destdir/usr/share/gocode/src";
-    $this->doit_in_builddir('mkdir', '-p', $dest_src);
-    $this->doit_in_builddir('cp', '-r', '-T', "this/src", $dest_src);
 }
 
 sub clean {

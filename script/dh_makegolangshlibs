@@ -8,6 +8,9 @@ dh_makegolangshlibs - Generates golang-specific shlibs files and substvars
 
 use strict;
 use Debian::Debhelper::Dh_Lib;
+use File::Find;
+use JSON;
+use MIME::Base64;
 
 =head1 SYNOPSIS
 
@@ -33,25 +36,60 @@ init();
 # Generate ...
 ############################################################################
 
+my ($libpkg, $devpkg);
+
 foreach my $pkg (@{$dh{DOPACKAGES}}) {
     if ($pkg =~ /^lib.*[0-9]$/) {
-        my ($libname, $sover) = ($pkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
-	my $tmp=tmpdir($pkg);
-        if (! -d "$tmp/DEBIAN") {
-            doit("install","-d","$tmp/DEBIAN");
-        }
-        my $sofile="$tmp/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/lib${libname}.so.${sover}";
-        complex_doit("objcopy -j .go_export '$sofile' tmp.gox 2>/dev/null");
-        my $abihash = qx(cat tmp.gox | sha1sum);
-        doit("rm tmp.gox");
-        $abihash = (split(/ /, $abihash))[0];
-        my $provides = "$pkg-$abihash";
-        addsubstvar($pkg, "golang:Provides", $provides);
-        complex_doit("echo 'lib$libname $sover $provides' >>$tmp/DEBIAN/shlibs");
-        autoscript($pkg,"postinst","postinst-makeshlibs");
-        autoscript($pkg,"postrm","postrm-makeshlibs");
+        $libpkg = $pkg;
+    }
+    if ($pkg =~ /-dev$/) {
+        $devpkg = $pkg;
     }
 }
+
+if (!defined($libpkg) || !defined($devpkg)) {
+    printf("could not find lib and dev packages");
+    exit(1);
+}
+
+my $devpkgdir = tmpdir($devpkg);
+my @jsonfiles;
+find({
+    wanted => sub {
+        my $F = $File::Find::name;
+
+        if ($F =~ /json$/ ) {
+            push @jsonfiles, $F;
+        }
+    },
+    no_chdir => 1,
+     } ,$devpkgdir);
+if (@jsonfiles != 1) { die "too many / too few"; }
+open( my $jh, '<', @jsonfiles ) or die "wtf @jsonfiles";
+my $json_text   = <$jh>;
+close($jh);
+my $shlibdata = decode_json($json_text);
+if (!defined($shlibdata->{Hash})) {
+    printf("malformed shlibdata: Hash not found");
+    exit(1);
+}
+my $hexhash;
+foreach (split //, decode_base64($shlibdata->{Hash})) {
+    $hexhash .= sprintf("%02lx", ord($_));
+}
+
+my $libpkgdir=tmpdir($libpkg);
+my ($libname, $sover) = ($libpkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
+
+if (! -d "$libpkgdir/DEBIAN") {
+    doit("install","-d","$libpkgdir/DEBIAN");
+}
+my $provides = "$libpkg-$hexhash";
+addsubstvar($libpkg, "golang:Provides", $provides);
+complex_doit("echo 'lib$libname $sover $provides' >>$libpkgdir/DEBIAN/shlibs");
+autoscript($libpkg,"postinst","postinst-makeshlibs");
+autoscript($libpkg,"postrm","postrm-makeshlibs");
+
 
 =head1 SEE ALSO
 
