@@ -118,7 +118,9 @@ sub configure {
 
     my $installed_shlib_data_dir = "/usr/lib/" . dpkg_architecture_value("DEB_HOST_MULTIARCH") . "/gocode";
     if (-d $installed_shlib_data_dir) {
-        $this->doit_in_builddir("ln", "-sT", "$installed_shlib_data_dir", "shlibdeps");
+        make_path("$builddir/shlibdeps/pkg");
+        $this->doit_in_builddir("ln", "-sT", "$installed_shlib_data_dir/src", "shlibdeps/src");
+        complex_doit("ln", "-s", "$installed_shlib_data_dir/pkg/*_dynlink", "$builddir/shlibdeps/pkg");
     }
 
     make_path("$builddir/srcdeps/src");
@@ -262,10 +264,10 @@ sub build {
     if ($libname_version) {
         $this->build_shared($libname_version);
         $this->doit_in_builddir(
-            "go", "install", buildX(), "-v", "-ldflags=-v -r ''", "-buildmode=exe", "-linkshared", @_, get_targets());
+            "go", "install", buildX(), "-v", "-ldflags=-r ''", "-buildmode=exe", "-linkshared", @_, get_targets());
     } elsif (exists($ENV{DH_GOLANG_LINK_SHARED})) {
         $this->doit_in_builddir(
-            "go", "install", buildX(), "-v", "-compiler", "gccgo", "-build=linkshared", @_, get_targets());
+            "go", "install", buildX(), "-v", "-ldflags=-r ''", "-linkshared", @_, get_targets());
     } else {
         $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
     }

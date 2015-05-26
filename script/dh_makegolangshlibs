@@ -47,36 +47,29 @@ foreach my $pkg (@{$dh{DOPACKAGES}}) {
     }
 }
 
-if (!defined($libpkg) || !defined($devpkg)) {
-    printf("could not find lib and dev packages");
+if (!defined($libpkg)) {
+    exit(0);
+} elsif (!defined($devpkg)) {
+    printf("found lib package but not dev");
     exit(1);
 }
 
-my $devpkgdir = tmpdir($devpkg);
-my @jsonfiles;
+my $devpkgdir = tmpdir($libpkg);
+my @sofiles;
 find({
     wanted => sub {
         my $F = $File::Find::name;
 
-        if ($F =~ /json$/ ) {
-            push @jsonfiles, $F;
+        if ($F =~ /.so.[0-9]+$/ ) {
+            push @sofiles, $F;
         }
     },
     no_chdir => 1,
      } ,$devpkgdir);
-if (@jsonfiles != 1) { die "too many / too few"; }
-open( my $jh, '<', @jsonfiles ) or die "wtf @jsonfiles";
-my $json_text   = <$jh>;
-close($jh);
-my $shlibdata = decode_json($json_text);
-if (!defined($shlibdata->{Hash})) {
-    printf("malformed shlibdata: Hash not found");
-    exit(1);
-}
-my $hexhash;
-foreach (split //, decode_base64($shlibdata->{Hash})) {
-    $hexhash .= sprintf("%02lx", ord($_));
-}
+if (@sofiles != 1) { die "too many / too few"; }
+
+my $hexhash=`/usr/lib/go/readabihash @sofiles`;
+chomp($hexhash);
 
 my $libpkgdir=tmpdir($libpkg);
 my ($libname, $sover) = ($libpkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
