@@ -72,7 +72,7 @@ my $hexhash=`/usr/lib/go/readabihash @sofiles`;
 chomp($hexhash);
 
 my $libpkgdir=tmpdir($libpkg);
-my ($libname, $sover) = ($libpkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
+my ($libname, $sover) = ($libpkg =~ /^lib(.*?)-?([0-9]+)$/);
 
 if (! -d "$libpkgdir/DEBIAN") {
     doit("install","-d","$libpkgdir/DEBIAN");

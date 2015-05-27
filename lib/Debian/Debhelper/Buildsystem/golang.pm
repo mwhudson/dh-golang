@@ -199,7 +199,7 @@ sub get_libname_version {
 
     if (!$pkg) { return undef; }
 
-    my ($libname, $sover) = ($pkg =~ /^lib(.*[^0-9])-?([0-9]+)$/);
+    my ($libname, $sover) = ($pkg =~ /^lib(.*?)-?([0-9]+)$/);
     my $r = {
         "libname" => $libname,
         "sover" => $sover,
