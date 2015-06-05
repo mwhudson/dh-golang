@@ -9,7 +9,6 @@ dh_makegolangshlibs - Generates golang-specific shlibs files and substvars
 use strict;
 use Debian::Debhelper::Dh_Lib;
 use File::Find;
-use JSON;
 use MIME::Base64;
 
 =head1 SYNOPSIS

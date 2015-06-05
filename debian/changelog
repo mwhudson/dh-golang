@@ -1,4 +1,10 @@
-dh-golang (1.6ubuntu1) utopic; urgency=medium
+dh-golang (1.6ubuntu2) vivid; urgency=medium
+
+  * Oops
+
+ -- Michael Hudson-Doyle <michael.hudson@canonical.com>  Thu, 28 May 2015 12:10:59 +1200
+
+dh-golang (1.6ubuntu1) vivid; urgency=medium
 
   * Add sort-of support for shared libs.
 
