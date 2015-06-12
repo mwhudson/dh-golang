@@ -1,3 +1,9 @@
+dh-golang (1.17ubuntu2) UNRELEASED; urgency=medium
+
+  * Add support for compiling go packages into shared libraries.
+
+ -- Michael Hudson-Doyle <michael.hudson@ubuntu.com>  Sun, 01 May 2016 22:28:04 +1200
+
 dh-golang (1.17ubuntu1) yakkety; urgency=medium
 
   * Yet another corner case in dh_golang, this one only shows up with gccgo.
