@@ -127,6 +127,7 @@ sub build {
     my $this = shift;
 
     $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
+    $this->doit_in_builddir("go", "generate", "-v", @_, get_targets());
     $this->doit_in_builddir("go", "install", "-v", @_, get_targets());
 }
 

@@ -1,3 +1,9 @@
+dh-golang (1.7) unstable; urgency=medium
+
+  * Call go generate (introduced with Go 1.4) when building packages.
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Sat, 25 Jul 2015 12:41:44 +0200
+
 dh-golang (1.6) unstable; urgency=low
 
   [ Michael Stapelberg ]
