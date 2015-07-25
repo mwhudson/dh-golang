@@ -1,6 +1,7 @@
 dh-golang (1.7) unstable; urgency=medium
 
   * Call go generate (introduced with Go 1.4) when building packages.
+  * Bump Standards-Version to 3.9.6 (no changes necessary)
 
  -- Michael Stapelberg <stapelberg@debian.org>  Sat, 25 Jul 2015 12:41:44 +0200
 
