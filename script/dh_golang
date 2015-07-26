@@ -7,8 +7,13 @@ dh_golang - Generates Built-Using substvar
 =cut
 
 use strict;
-use Debian::Debhelper::Dh_Lib;
-use Parse::DebControl; # not in core
+use Debian::Debhelper::Dh_Lib; # not in core
+use Dpkg; # not in core
+use Dpkg::Control; # not in core
+use Dpkg::Control::Info; # not in core
+use Dpkg::Deps; # not in core
+use Scalar::Util qw(blessed); # in core since v5.7.3
+use List::Util qw(first); # in core since v5.7.3
 
 =head1 SYNOPSIS
 
@@ -34,6 +39,42 @@ The best way to invoke B<dh_golang> is by using B<dh --with=golang>.
 
 init();
 
+# This code was copied from dpkg-checkbuilddeps, see
+# http://sources.debian.net/src/dpkg/1.18.1/scripts/dpkg-checkbuilddeps.pl/?hl=140#L140
+sub parse_status {
+    my $status = shift;
+
+    my $facts = Dpkg::Deps::KnownFacts->new();
+    local $/ = '';
+    open(my $status_fh, '<', $status)
+        or syserr(g_('cannot open %s'), $status);
+    while (<$status_fh>) {
+        next unless /^Status: .*ok installed$/m;
+
+        my ($package) = /^Package: (.*)$/m;
+        my ($version) = /^Version: (.*)$/m;
+        my ($arch) = /^Architecture: (.*)$/m;
+        my ($multiarch) = /^Multi-Arch: (.*)$/m;
+        $facts->add_installed_package($package, $version, $arch,
+                                      $multiarch);
+
+        if (/^Provides: (.*)$/m) {
+            my $provides = deps_parse($1, reduce_arch => 1, union => 1);
+            next if not defined $provides;
+            foreach (grep { $_->isa('Dpkg::Deps::Simple') }
+                                 $provides->get_deps())
+            {
+                $facts->add_provided_package($_->{package},
+                                    $_->{relation}, $_->{version},
+                                    $package);
+            }
+        }
+    }
+    close $status_fh;
+
+    return $facts;
+}
+
 ############################################################################
 # Generate misc:Built-Using substvar with the versions of all golang-*
 # build-dependency packages.
@@ -41,17 +82,28 @@ init();
 
 my $built_using;
 
-# TODO: switch to Dpkg::Control::Info, maybe?
-my $control_parser = Parse::DebControl->new();
-my $control_data = $control_parser->parse_file('./debian/control', { stripComments => 1 });
-my $source_data = $control_data->[0];
-if (!defined($source_data)) {
-    error('Could not parse ./debian/control');
-}
-if (defined($source_data->{'Build-Depends'})) {
-    my $golang_deps = join(' ', grep { defined }
-                                map  { /^\s*(golang-[^\s]+)/; $1 }
-                                split(',', $source_data->{'Build-Depends'}));
+my $control = Dpkg::Control::Info->new();
+my $source = $control->get_source();
+my $build_depends = $source->{"Build-Depends"};
+if (defined($build_depends) && $build_depends ne '') {
+    my $facts = parse_status($Dpkg::ADMINDIR . "/status");
+
+    sub flatten {
+        my ($dep) = @_;
+        if (blessed($dep) eq 'Dpkg::Deps::Simple') {
+            return $dep->get_evaluation($facts) ? $dep->{package} : undef;
+        }
+        if (blessed($dep) eq 'Dpkg::Deps::OR') {
+            # Return the first installed package.
+            return first { defined($_) } map { flatten($_) } $dep->get_deps();
+        }
+        die 'Unexpected object (of type ' . blessed($dep) . '), has the Dpkg::Deps API changed?';
+    }
+
+    my $deps = deps_parse($build_depends, reduce_restrictions => 1);
+    my $golang_deps = join(' ', grep { /^golang-/ }
+                                map { flatten($_) }
+                                $deps->get_deps());
     if ($golang_deps ne '') {
         $built_using = `dpkg-query -f='\${source:Package} (= \${source:Version}), ' -W $golang_deps`;
     }

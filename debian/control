@@ -11,7 +11,7 @@ Package: dh-golang
 Architecture: all
 Depends: ${perl:Depends}, ${misc:Depends},
          debhelper,
-         libparse-debcontrol-perl,
+         libdpkg-perl,
          dpkg (>= 1.16.2)
 Description: debhelper add-on for packaging software written in Go (golang)
  dh-golang provides a debhelper sequence addon named 'golang', a buildsystem

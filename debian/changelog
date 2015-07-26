@@ -1,3 +1,11 @@
+dh-golang (1.8) unstable; urgency=medium
+
+  * Correctly parse Build-Depends when they contain an OR.
+  * Relicense under GPL-2+ due to having copied a large chunk of GPL-2+ code
+    into dh_golang(1).
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Sun, 26 Jul 2015 19:25:48 +0200
+
 dh-golang (1.7) unstable; urgency=medium
 
   * Call go generate (introduced with Go 1.4) when building packages.
