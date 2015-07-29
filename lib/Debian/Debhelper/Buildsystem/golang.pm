@@ -51,11 +51,15 @@ sub configure {
     my $builddir = $this->get_builddir();
 
     ############################################################################
-    # Copy all .go files into the build directory $builddir/src/$go_package
+    # Copy all source files into the build directory $builddir/src/$go_package
     ############################################################################
 
     my $install_all = (exists($ENV{DH_GOLANG_INSTALL_ALL}) &&
                        $ENV{DH_GOLANG_INSTALL_ALL} == 1);
+
+    # By default, only .go, .c, .h, .proto and .s files are installed.
+    my @installed_file_extensions = ('.go', '.c', '.h', '.proto', '.s');
+
     my @sourcefiles;
     find({
         # Ignores ./debian entirely, but not e.g. foo/debian/debian.go
@@ -69,8 +73,18 @@ sub configure {
             my $name = $File::Find::name;
             if ($install_all) {
                 # All files will be installed
-            } elsif (substr($name, -3) ne '.go') {
-                return;
+            } else {
+                my $matched_extension = 0;
+                foreach (@installed_file_extensions)
+                {
+                      if (substr($name, -length($_)) eq $_){
+                          $matched_extension = 1;
+                          last;
+                      }
+                }
+                if (not $matched_extension) {
+                    return;
+                }
             }
             return unless -f $name;
             # Store regexp/utf.go instead of ./regexp/utf.go
