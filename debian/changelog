@@ -1,3 +1,9 @@
+dh-golang (1.9) unstable; urgency=medium
+
+  * Also install .{c,h,proto,s} files by default.
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Mon, 03 Aug 2015 21:44:51 +0200
+
 dh-golang (1.8) unstable; urgency=medium
 
   * Correctly parse Build-Depends when they contain an OR.
