@@ -57,8 +57,14 @@ sub configure {
     my $install_all = (exists($ENV{DH_GOLANG_INSTALL_ALL}) &&
                        $ENV{DH_GOLANG_INSTALL_ALL} == 1);
 
-    # By default, only .go, .c, .h, .proto and .s files are installed.
-    my @installed_file_extensions = ('.go', '.c', '.h', '.proto', '.s');
+    # By default, only files with the following extensions are installed:
+    my %whitelisted_exts = (
+        '.go' => 1,
+        '.c' => 1,
+        '.h' => 1,
+        '.proto' => 1,
+        '.s' => 1,
+    );
 
     my @sourcefiles;
     find({
@@ -67,28 +73,25 @@ sub configure {
         # Also ignores the build directory to avoid recursive copies.
         preprocess => sub {
             return @_ if $File::Find::dir ne '.';
-            return grep { $_ ne 'debian' && $_ ne '.pc' && $_ ne $builddir } @_;
+            return grep {
+                $_ ne 'debian' &&
+                $_ ne '.pc' &&
+                $_ ne '.git' &&
+                $_ ne $builddir
+            } @_;
         },
         wanted => sub {
-            my $name = $File::Find::name;
+            # Strip “./” in the beginning of the path.
+            my $name = substr($File::Find::name, 2);
             if ($install_all) {
                 # All files will be installed
             } else {
-                my $matched_extension = 0;
-                foreach (@installed_file_extensions)
-                {
-                      if (substr($name, -length($_)) eq $_){
-                          $matched_extension = 1;
-                          last;
-                      }
-                }
-                if (not $matched_extension) {
-                    return;
-                }
+                my $dot = rindex($name, ".");
+                return if $dot == -1;
+                return unless $whitelisted_exts{substr($name, $dot)};
             }
             return unless -f $name;
-            # Store regexp/utf.go instead of ./regexp/utf.go
-            push @sourcefiles, substr($name, 2);
+            push @sourcefiles, $name;
         },
         no_chdir => 1,
     }, '.');
