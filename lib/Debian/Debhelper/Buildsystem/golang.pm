@@ -3,6 +3,7 @@ package Debian::Debhelper::Buildsystem::golang;
 use strict;
 use base 'Debian::Debhelper::Buildsystem';
 use Debian::Debhelper::Dh_Lib; 
+use Dpkg::Control::Info;
 use File::Copy; # in core since 5.002
 use File::Path qw(make_path); # in core since 5.001
 use File::Find; # in core since 5
@@ -19,7 +20,20 @@ sub new {
     my $class = shift;
     my $this = $class->SUPER::new(@_);
     $this->prefer_out_of_source_building();
+    set_dh_gopkg();
     return $this;
+}
+
+sub set_dh_gopkg {
+    # If DH_GOPKG isn't set en the environ already, we'll bring up the
+    # Debian control file, and try to grab the XS-Go-Import-Path from
+    # the debian/control, and place it into the environ.
+    if(! defined $ENV{DH_GOPKG}) {
+        my $control = Dpkg::Control::Info->new();
+        my $source = $control->get_source();
+        my $gopkg = $source->{"XS-Go-Import-Path"};
+        $ENV{DH_GOPKG} = $gopkg;
+    }
 }
 
 sub _link_contents {
