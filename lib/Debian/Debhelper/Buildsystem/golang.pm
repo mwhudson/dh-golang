@@ -20,20 +20,19 @@ sub new {
     my $class = shift;
     my $this = $class->SUPER::new(@_);
     $this->prefer_out_of_source_building();
-    set_dh_gopkg();
+    _set_dh_gopkg();
     return $this;
 }
 
-sub set_dh_gopkg {
-    # If DH_GOPKG isn't set en the environ already, we'll bring up the
-    # Debian control file, and try to grab the XS-Go-Import-Path from
-    # the debian/control, and place it into the environ.
-    if(! defined $ENV{DH_GOPKG}) {
-        my $control = Dpkg::Control::Info->new();
-        my $source = $control->get_source();
-        my $gopkg = $source->{"XS-Go-Import-Path"};
-        $ENV{DH_GOPKG} = $gopkg;
-    }
+sub _set_dh_gopkg {
+    # If DH_GOPKG is missing, try to set it from the XS-Go-Import-Path field
+    # from debian/control. If this approach works well, we will only use this
+    # method in the future.
+    return if defined($ENV{DH_GOPKG}) && $ENV{DH_GOPKG} ne '';
+
+    my $control = Dpkg::Control::Info->new();
+    my $source = $control->get_source();
+    $ENV{DH_GOPKG} = $source->{"XS-Go-Import-Path"};
 }
 
 sub _link_contents {
