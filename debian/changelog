@@ -1,3 +1,12 @@
+dh-golang (1.10) unstable; urgency=medium
+
+  * If DH_GOPKG is not set in debian/rules, use XS-Go-Import-Path from
+    debian/control. If this works out well, this will become the encouraged
+    mechanism. The advantage is that it is easier to parse this field for
+    other automation that deals with Go packaging.
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Thu, 06 Aug 2015 22:26:55 +0200
+
 dh-golang (1.9) unstable; urgency=medium
 
   * Also install .{c,h,proto,s} files by default.
