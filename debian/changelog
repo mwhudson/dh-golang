@@ -1,3 +1,9 @@
+dh-golang (1.11) unstable; urgency=medium
+
+  * Only call go generate if DH_GOLANG_GO_GENERATE == 1 (Closes: #794815)
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Fri, 07 Aug 2015 09:47:50 +0200
+
 dh-golang (1.10) unstable; urgency=medium
 
   * If DH_GOPKG is not set in debian/rules, use XS-Go-Import-Path from
