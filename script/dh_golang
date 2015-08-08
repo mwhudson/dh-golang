@@ -12,6 +12,7 @@ use Dpkg; # not in core
 use Dpkg::Control; # not in core
 use Dpkg::Control::Info; # not in core
 use Dpkg::Deps; # not in core
+use Dpkg::Gettext; # not in core
 use Scalar::Util qw(blessed); # in core since v5.7.3
 use List::Util qw(first); # in core since v5.7.3
 
@@ -86,7 +87,12 @@ my $control = Dpkg::Control::Info->new();
 my $source = $control->get_source();
 my $build_depends = $source->{"Build-Depends"};
 if (defined($build_depends) && $build_depends ne '') {
-    my $facts = parse_status($Dpkg::ADMINDIR . "/status");
+    my $facts;
+    if ($Dpkg::VERSION >= 1.01) {
+        $facts = parse_status($Dpkg::ADMINDIR . "/status");
+    } else {
+        $facts = parse_status($Dpkg::admindir . "/status");
+    }
 
     sub flatten {
         my ($dep) = @_;
