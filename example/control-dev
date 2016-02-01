@@ -1,0 +1,14 @@
+Source: golang-go-library
+Section: net
+Priority: extra
+Maintainer: Go Packager <go-pkg@example.com>
+Build-Depends: debhelper (>= 8.0.0), dh-golang, golang-go
+Standards-Version: 3.9.2
+#Vcs-Git: git://git.debian.org/collab-maint/dcs.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/dcs.git;a=summary
+
+Package: golang-go-library-dev
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Random Go library
+ A random Go library that does something very useful.
