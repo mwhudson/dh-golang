@@ -106,7 +106,7 @@ if (defined($build_depends) && $build_depends ne '') {
         die 'Unexpected object (of type ' . blessed($dep) . '), has the Dpkg::Deps API changed?';
     }
 
-    my $deps = deps_parse($build_depends, reduce_restrictions => 1);
+    my $deps = deps_parse($build_depends, reduce_restrictions => 1, build_dep => 1);
     my $golang_deps = join(' ', grep { /^golang-/ }
                                 map { flatten($_) }
                                 $deps->get_deps());
