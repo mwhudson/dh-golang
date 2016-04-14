@@ -35,6 +35,11 @@ sub _set_dh_gopkg {
     $ENV{DH_GOPKG} = $source->{"XS-Go-Import-Path"};
 }
 
+sub _set_gopath {
+    my $this = shift;
+    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
+}
+
 sub _link_contents {
     my ($src, $dst) = @_;
 
@@ -156,7 +161,6 @@ sub get_targets {
 sub build {
     my $this = shift;
 
-    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
     if (exists($ENV{DH_GOLANG_GO_GENERATE}) && $ENV{DH_GOLANG_GO_GENERATE} == 1) {
         $this->doit_in_builddir("go", "generate", "-v", @_, get_targets());
     }
@@ -166,7 +170,7 @@ sub build {
 sub test {
     my $this = shift;
 
-    $ENV{GOPATH} = $this->{cwd} . '/' . $this->get_builddir();
+    $this->_set_gopath();
     $this->doit_in_builddir("go", "test", "-v", @_, get_targets());
 }
 

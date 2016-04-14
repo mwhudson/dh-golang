@@ -7,6 +7,7 @@ dh_golang - Generates Built-Using substvar
 =cut
 
 use strict;
+use Cwd qw(realpath);
 use Debian::Debhelper::Dh_Lib; # not in core
 use Dpkg; # not in core
 use Dpkg::Control; # not in core
@@ -15,6 +16,7 @@ use Dpkg::Deps; # not in core
 use Dpkg::Gettext; # not in core
 use Scalar::Util qw(blessed); # in core since v5.7.3
 use List::Util qw(first); # in core since v5.7.3
+use Debian::Debhelper::Buildsystem::golang;
 
 =head1 SYNOPSIS
 
@@ -23,14 +25,9 @@ B<dh_golang> [S<I<debhelper options>>]
 =head1 DESCRIPTION
 
 B<dh_golang> is a debhelper program which adds the misc:Built-Using substvar
-based on the Build-Dependencies of your packages. Every package starting with
-golang is queried for the precise version number.
-
-As an example, if you Build-Depend on golang-pq-dev, the resulting
-misc:Built-Using value (aside from the precise version number) will look like
-this:
-
-golang (= 2:1.1.1-1), golang-pq-dev (= 0.0~git20130606-1),
+based on the dependencies of the package being built. It uses go list to
+determine the packages imported and dpkg-query to find the source package and
+version that provided that package.
 
 =head1 NOTES
 
@@ -40,80 +37,32 @@ The best way to invoke B<dh_golang> is by using B<dh --with=golang>.
 
 init();
 
-# This code was copied from dpkg-checkbuilddeps, see
-# http://sources.debian.net/src/dpkg/1.18.1/scripts/dpkg-checkbuilddeps.pl/?hl=140#L140
-sub parse_status {
-    my $status = shift;
-
-    my $facts = Dpkg::Deps::KnownFacts->new();
-    local $/ = '';
-    open(my $status_fh, '<', $status)
-        or syserr(g_('cannot open %s'), $status);
-    while (<$status_fh>) {
-        next unless /^Status: .*ok installed$/m;
-
-        my ($package) = /^Package: (.*)$/m;
-        my ($version) = /^Version: (.*)$/m;
-        my ($arch) = /^Architecture: (.*)$/m;
-        my ($multiarch) = /^Multi-Arch: (.*)$/m;
-        $facts->add_installed_package($package, $version, $arch,
-                                      $multiarch);
-
-        if (/^Provides: (.*)$/m) {
-            my $provides = deps_parse($1, reduce_arch => 1, union => 1);
-            next if not defined $provides;
-            foreach (grep { $_->isa('Dpkg::Deps::Simple') }
-                                 $provides->get_deps())
-            {
-                $facts->add_provided_package($_->{package},
-                                    $_->{relation}, $_->{version},
-                                    $package);
-            }
-        }
-    }
-    close $status_fh;
-
-    return $facts;
-}
-
 ############################################################################
-# Generate misc:Built-Using substvar with the versions of all golang-*
-# build-dependency packages.
+# Generate misc:Built-Using substvar.
 ############################################################################
 
-my $built_using;
+my $bs = Debian::Debhelper::Buildsystem::golang->new();
 
-my $control = Dpkg::Control::Info->new();
-my $source = $control->get_source();
-my $build_depends = $source->{"Build-Depends"};
-if (defined($build_depends) && $build_depends ne '') {
-    my $facts;
-    if ($Dpkg::VERSION >= 1.01) {
-        $facts = parse_status($Dpkg::ADMINDIR . "/status");
-    } else {
-        $facts = parse_status($Dpkg::admindir . "/status");
-    }
+$bs->_set_dh_gopkg();
+$bs->_set_gopath();
 
-    sub flatten {
-        my ($dep) = @_;
-        if (blessed($dep) eq 'Dpkg::Deps::Simple') {
-            return $dep->get_evaluation($facts) ? $dep->{package} : undef;
-        }
-        if (blessed($dep) eq 'Dpkg::Deps::OR') {
-            # Return the first installed package.
-            return first { defined($_) } map { flatten($_) } $dep->get_deps();
-        }
-        die 'Unexpected object (of type ' . blessed($dep) . '), has the Dpkg::Deps API changed?';
-    }
+my @targets = $bs->get_targets();
 
-    my $deps = deps_parse($build_depends, reduce_restrictions => 1, build_dep => 1);
-    my $golang_deps = join(' ', grep { /^golang-/ }
-                                map { flatten($_) }
-                                $deps->get_deps());
-    if ($golang_deps ne '') {
-        $built_using = `dpkg-query -f='\${source:Package} (= \${source:Version}), ' -W $golang_deps`;
+my $godeps = `go list -f '{{ range .Deps }}{{.}} {{ end }}' @targets`;
+$godeps =~ s/\n/ /g;
+my @godirs = split /\n/, `go list -f '{{ .Dir }}' $godeps`;
+my $realgodirs;
+my $cwd = $bs->{cwd};
+for my $godir (@godirs) {
+    my $realpath = realpath($godir);
+    # @godirs will include the directories of the package being built, so exclude them.
+    if ($realpath !~ /^$bs->{cwd}/) {
+        $realgodirs .= realpath($godir) . " ";
     }
 }
+my $pkgs = `dpkg-query --search $realgodirs | cut -d: -f1`;
+$pkgs =~ s/\n/ /g;
+my $built_using = `dpkg-query -f='\${source:Package} (= \${source:Version}), ' -W $pkgs`;
 
 # If there is an easier way to have a universal misc:Built-Using on all binary
 # packages, I am happy to merge your patch :).
