@@ -161,6 +161,7 @@ sub get_targets {
 sub build {
     my $this = shift;
 
+    $this->_set_gopath();
     if (exists($ENV{DH_GOLANG_GO_GENERATE}) && $ENV{DH_GOLANG_GO_GENERATE} == 1) {
         $this->doit_in_builddir("go", "generate", "-v", @_, get_targets());
     }

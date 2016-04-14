@@ -1,3 +1,9 @@
+dh-golang (1.15) UNRELEASED; urgency=medium
+
+  * Restore setting of GOPATH during build removed by mistake in 1.14.
+
+ -- Michael Hudson-Doyle <michael.hudson@ubuntu.com>  Fri, 15 Apr 2016 09:31:13 +1200
+
 dh-golang (1.14) unstable; urgency=medium
 
   [ Michael Hudson-Doyle ]
