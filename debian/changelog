@@ -1,3 +1,18 @@
+dh-golang (1.16) UNRELEASED; urgency=medium
+
+  * Make dh_golang more robust:
+    - Initialize the buildsystem more correctly, so --builddirectory=_build
+      works (Closes: 821350)
+    - Exit with an error if any of the 'go list' or 'dpkg-search' commands
+      fail.
+    - Quote the current working directory in the regexp used to filter out
+      files from the build directory.
+    - Store package / directory lists in files and use xargs to avoid
+      constructing over-long command lines.
+  * Also trim dh_golang's use statements. 
+
+ -- Michael Hudson-Doyle <michael.hudson@ubuntu.com>  Tue, 19 Apr 2016 11:42:26 +1200
+
 dh-golang (1.15) unstable; urgency=medium
 
   [ Michael Hudson-Doyle ]

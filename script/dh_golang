@@ -9,14 +9,8 @@ dh_golang - Generates Built-Using substvar
 use strict;
 use Cwd qw(realpath);
 use Debian::Debhelper::Dh_Lib; # not in core
-use Dpkg; # not in core
-use Dpkg::Control; # not in core
-use Dpkg::Control::Info; # not in core
-use Dpkg::Deps; # not in core
-use Dpkg::Gettext; # not in core
-use Scalar::Util qw(blessed); # in core since v5.7.3
-use List::Util qw(first); # in core since v5.7.3
-use Debian::Debhelper::Buildsystem::golang;
+use Debian::Debhelper::Dh_Buildsystems; # not in core
+use File::Temp qw(tempdir);
 
 =head1 SYNOPSIS
 
@@ -35,34 +29,48 @@ The best way to invoke B<dh_golang> is by using B<dh --with=golang>.
 
 =cut
 
-init();
-
 ############################################################################
 # Generate misc:Built-Using substvar.
 ############################################################################
 
-my $bs = Debian::Debhelper::Buildsystem::golang->new();
+buildsystems_init();
+my $bs = load_buildsystem("golang");
 
-$bs->_set_dh_gopkg();
 $bs->_set_gopath();
 
 my @targets = $bs->get_targets();
 
-my $godeps = `go list -f '{{ range .Deps }}{{.}} {{ end }}' @targets`;
-$godeps =~ s/\n/ /g;
-my @godirs = split /\n/, `go list -f '{{ .Dir }}' $godeps`;
-my $realgodirs;
-my $cwd = $bs->{cwd};
-for my $godir (@godirs) {
-    my $realpath = realpath($godir);
-    # @godirs will include the directories of the package being built, so exclude them.
-    if ($realpath !~ /^$bs->{cwd}/) {
-        $realgodirs .= realpath($godir) . " ";
+my $tmpl = '{{ range .Deps }}{{.}}
+{{ end }}';
+
+my $tmpdir = tempdir("dh_golang_XXXXXXX", TMPDIR => 1, CLEANUP => 1);
+
+system("go list -f \"$tmpl\" @targets > $tmpdir/godeps") == 0
+    or die "go list of targets failed with code $?, $!";
+
+system("sort -u $tmpdir/godeps | xargs go list -f '{{ .Dir }}' > $tmpdir/godirs") == 0
+    or die "go list of dependencies failed with code $?, $!";
+
+open(my $inp, "<", "$tmpdir/godirs");
+open(my $outp, ">", "$tmpdir/realgodirs");
+while (<$inp>) {
+    chomp;
+    my $realpath = realpath($_);
+    # godirs will include the directories of the package being built, so exclude them.
+    if ($realpath !~ /^\Q$bs->{cwd}\E/) {
+        printf $outp "%s\n", $realpath;
     }
 }
-my $pkgs = `dpkg-query --search $realgodirs | cut -d: -f1`;
-$pkgs =~ s/\n/ /g;
-my $built_using = `dpkg-query -f='\${source:Package} (= \${source:Version}), ' -W $pkgs`;
+close($inp);
+close($outp);
+
+system("cat $tmpdir/realgodirs | xargs dpkg-query --search > $tmpdir/pkgs") == 0
+    or die "dpkg-query --search failed with code $?, $!";
+
+my $built_using = `cut -d: -f1 $tmpdir/pkgs | sort -u | xargs dpkg-query -f='\${source:Package} (= \${source:Version}), ' -W`;
+if ($? != 0) {
+    die "dpkg-query -W failed with code $?, $!";
+}
 
 # If there is an easier way to have a universal misc:Built-Using on all binary
 # packages, I am happy to merge your patch :).
