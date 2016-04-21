@@ -1,5 +1,6 @@
-dh-golang (1.16) UNRELEASED; urgency=medium
+dh-golang (1.16) unstable; urgency=medium
 
+  [ Michael Hudson-Doyle ]
   * Make dh_golang more robust:
     - Initialize the buildsystem more correctly, so --builddirectory=_build
       works (Closes: 821350)
@@ -11,7 +12,7 @@ dh-golang (1.16) UNRELEASED; urgency=medium
       constructing over-long command lines.
   * Also trim dh_golang's use statements. 
 
- -- Michael Hudson-Doyle <michael.hudson@ubuntu.com>  Tue, 19 Apr 2016 11:42:26 +1200
+ -- Michael Stapelberg <stapelberg@debian.org>  Thu, 21 Apr 2016 09:38:34 +0200
 
 dh-golang (1.15) unstable; urgency=medium
 
