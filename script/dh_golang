@@ -64,10 +64,10 @@ while (<$inp>) {
 close($inp);
 close($outp);
 
-system("cat $tmpdir/realgodirs | xargs dpkg-query --search > $tmpdir/pkgs") == 0
+system("cat $tmpdir/realgodirs | xargs -r dpkg-query --search > $tmpdir/pkgs") == 0
     or die "dpkg-query --search failed with code $?, $!";
 
-my $built_using = `cut -d: -f1 $tmpdir/pkgs | sort -u | xargs dpkg-query -f='\${source:Package} (= \${source:Version}), ' -W`;
+my $built_using = `cut -d: -f1 $tmpdir/pkgs | sort -u | xargs -r dpkg-query -f='\${source:Package} (= \${source:Version}), ' -W`;
 if ($? != 0) {
     die "dpkg-query -W failed with code $?, $!";
 }
