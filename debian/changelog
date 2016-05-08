@@ -4,6 +4,9 @@ dh-golang (1.17) UNRELEASED; urgency=medium
     - Update Maintainer and Uploaders.
     - Update Vcs-* fields.
   * Update Standards-Version with no changes.
+  * Export DH_GOLANG_INSTALL_EXTRA with a list of space-separated paths to
+    copy to the build dir, for tests and other files not automatically
+    installed.
 
  -- Martín Ferrari <tincho@debian.org>  Thu, 05 May 2016 11:10:19 +0100
 

@@ -114,6 +114,18 @@ sub configure {
         no_chdir => 1,
     }, '.');
 
+    # Extra files/directories to install.
+    my @install_extra = (exists($ENV{DH_GOLANG_INSTALL_EXTRA}) ?
+                         split(/ /, $ENV{DH_GOLANG_INSTALL_EXTRA}) : ());
+
+    find({
+        wanted => sub {
+            return unless -f $File::Find::name;
+            push @sourcefiles, $File::Find::name;
+        },
+        no_chdir => 1,
+    }, @install_extra) if(@install_extra);
+
     for my $source (@sourcefiles) {
         my $dest = "$builddir/src/$ENV{DH_GOPKG}/$source";
         make_path(dirname($dest));
