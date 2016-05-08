@@ -191,17 +191,33 @@ sub install {
     my $this = shift;
     my $destdir = shift;
     my $builddir = $this->get_builddir();
+    my $install_source = 1;
+    my $install_binaries = 1;
+
+    while(@_) {
+        if($_[0] eq '--no-source') {
+            $install_source = 0;
+            shift;
+        } elsif($_[0] eq '--no-binaries') {
+            $install_binaries = 0;
+            shift;
+        } else {
+            error("Unknown option $_[0]");
+        }
+    }
 
     my @binaries = <$builddir/bin/*>;
-    if (@binaries > 0) {
+    if ($install_binaries and @binaries > 0) {
         $this->doit_in_builddir('mkdir', '-p', "$destdir/usr");
         $this->doit_in_builddir('cp', '-r', 'bin', "$destdir/usr");
     }
 
-    # Path to the src/ directory within $destdir
-    my $dest_src = "$destdir/usr/share/gocode/src/$ENV{DH_GOPKG}";
-    $this->doit_in_builddir('mkdir', '-p', $dest_src);
-    $this->doit_in_builddir('cp', '-r', '-T', "src/$ENV{DH_GOPKG}", $dest_src);
+    if ($install_source) {
+        # Path to the src/ directory within $destdir
+        my $dest_src = "$destdir/usr/share/gocode/src/$ENV{DH_GOPKG}";
+        $this->doit_in_builddir('mkdir', '-p', $dest_src);
+        $this->doit_in_builddir('cp', '-r', '-T', "src/$ENV{DH_GOPKG}", $dest_src);
+    }
 }
 
 sub clean {

@@ -7,6 +7,7 @@ dh-golang (1.17) UNRELEASED; urgency=medium
   * Export DH_GOLANG_INSTALL_EXTRA with a list of space-separated paths to
     copy to the build dir, for tests and other files not automatically
     installed.
+  * Add --no-source and --no-binaries options to install target.
 
  -- Martín Ferrari <tincho@debian.org>  Thu, 05 May 2016 11:10:19 +0100
 
