@@ -8,6 +8,7 @@ dh-golang (1.17) UNRELEASED; urgency=medium
     copy to the build dir, for tests and other files not automatically
     installed.
   * Add --no-source and --no-binaries options to install target.
+  * Display a debug message when copying files to the build tree.
 
  -- Martín Ferrari <tincho@debian.org>  Thu, 05 May 2016 11:10:19 +0100
 

@@ -56,6 +56,7 @@ sub _link_contents {
         if (-d "$dst/$base") {
             _link_contents("$src/$base", "$dst/$base");
         } else {
+            verbose_print("Symlink $src/$base -> $dst/$base");
             symlink("$src/$base", "$dst/$base");
         }
     }
@@ -132,6 +133,7 @@ sub configure {
         # Avoid re-copying the files, this would update their timestamp and
         # make go(1) recompile them.
         next if -f $dest;
+        verbose_print("Copy $source -> $dest");
         copy($source, $dest) or error("Could not copy $source to $dest: $!");
     }
 
