@@ -48,7 +48,15 @@ my $tmpdir = tempdir("dh_golang_XXXXXXX", TMPDIR => 1, CLEANUP => 1);
 system("go list -f \"$tmpl\" @targets > $tmpdir/godeps") == 0
     or die "go list of targets failed with code $?, $!";
 
-system("sort -u $tmpdir/godeps | xargs go list -f '{{ .Dir }}' > $tmpdir/godirs") == 0
+# If we're linking against shared libraries, we only want to consider
+# the dependencies that are not in shared libraries.
+my $linkshared;
+
+if ($bs->{shlibconfig}->{linkshared}) {
+    $linkshared = "-linkshared";
+}
+
+system("sort -u $tmpdir/godeps | grep -v '^unsafe\$' |  xargs go list $linkshared -f '{{if not .Shlib}}{{ .Dir }}{{end}}' > $tmpdir/godirs") == 0
     or die "go list of dependencies failed with code $?, $!";
 
 open(my $inp, "<", "$tmpdir/godirs");
