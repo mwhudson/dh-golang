@@ -1,5 +1,6 @@
-dh-golang (1.17) UNRELEASED; urgency=medium
+dh-golang (1.17) unstable; urgency=medium
 
+  * Team upload.
   * Move dh-golang to the pkg-go team repository.
     - Update Maintainer and Uploaders.
     - Update Vcs-* fields.
@@ -10,7 +11,7 @@ dh-golang (1.17) UNRELEASED; urgency=medium
   * Add --no-source and --no-binaries options to install target.
   * Display a debug message when copying files to the build tree.
 
- -- Martín Ferrari <tincho@debian.org>  Thu, 05 May 2016 11:10:19 +0100
+ -- Martín Ferrari <tincho@debian.org>  Mon, 16 May 2016 01:08:06 +0100
 
 dh-golang (1.16) unstable; urgency=medium
 
