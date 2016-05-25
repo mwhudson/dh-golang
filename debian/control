@@ -1,7 +1,8 @@
 Source: dh-golang
 Section: devel
 Priority: extra
-Maintainer: Debian Go Packaging Team <pkg-go-maintainers@lists.alioth.debian.org>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Debian Go Packaging Team <pkg-go-maintainers@lists.alioth.debian.org>
 Uploaders: Michael Stapelberg <stapelberg@debian.org>
 Build-Depends: debhelper (>= 8.0.0), libmodule-install-perl
 Standards-Version: 3.9.8

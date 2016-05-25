@@ -1,4 +1,4 @@
-dh-golang (1.18) UNRELEASED; urgency=medium
+dh-golang (1.17ubuntu1) yakkety; urgency=medium
 
   * Yet another corner case in dh_golang, this one only shows up with gccgo.
     (Closes: 823136)
