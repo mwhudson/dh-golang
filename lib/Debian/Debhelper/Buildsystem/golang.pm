@@ -7,6 +7,7 @@ use Dpkg::Control::Info;
 use File::Copy; # in core since 5.002
 use File::Path qw(make_path); # in core since 5.001
 use File::Find; # in core since 5
+use File::Spec;
 
 sub DESCRIPTION {
     "Go"
@@ -242,12 +243,24 @@ sub build_shlib {
     my $this = shift;
     my $config = $this->{shlibconfig};
 
-    my $ldflags = "-r '' -extldflags=-Wl,-soname=" . $config->{soname};
+    my $gccgo;
+    if (system("go tool -n compile > /dev/null 2>&1") == 0) {
+        $gccgo = 0;
+    } else {
+        $gccgo = 1;
+    }
+    my $ldflags;
+
+    if ($gccgo) {
+        $ldflags = "-gccgoflags=-Wl,-soname=$config->{soname} -Wl,-znow";
+    } else {
+        $ldflags = "-ldflags=-r '' -extldflags=-Wl,-soname=$config->{soname}"
+    }
 
     my @targets = get_targets();
 
     $this->doit_in_builddir(
-        "go", "install", "-v", "-ldflags", $ldflags,
+        "go", "install", "-v", "-x", $ldflags,
         "-buildmode=shared", "-linkshared", @targets);
 
     my $shlib = go_shlib_path();
@@ -256,8 +269,14 @@ sub build_shlib {
     $this->doit_in_builddir("mv", "$shlib", "$dsodir/" . $config->{soname});
     $this->doit_in_builddir("ln", "-s", $config->{soname}, "$shlib");
 
+    if ($gccgo) {
+        $ldflags = "-gccgoflags=-Wl,-znow";
+    } else {
+        $ldflags = "-ldflags=-r ''"
+    }
+
     $this->doit_in_builddir(
-        "go", "install", "-v", "-ldflags", "-r ''",
+        "go", "install", "-v", $ldflags,
         "-buildmode=exe", "-linkshared", @targets);
 }
 
@@ -344,15 +363,16 @@ sub install {
         doit('cp', '-r', '-T', "$builddir/src/$ENV{DH_GOPKG}", $dest_src);
 
         my $dest_lib_prefix = tmpdir($config->{devpkg}) . $final_shlib_dir . "/gocode/";
-        my $goos_goarch_dynlink = basename((<$builddir/pkg/*_dynlink>)[0]);
+        my $rel_sopath = File::Spec->abs2rel($solink, $builddir);
+        my $built_file_dir = "pkg/" . (File::Spec->splitdir($rel_sopath))[1];
 
         # b) .a files (this copies the symlink too but that will get overwritten in the next step)
-        my $dest_pkg = $dest_lib_prefix . "pkg/$goos_goarch_dynlink";
+        my $dest_pkg = "$dest_lib_prefix$built_file_dir";
         doit('mkdir', '-p', $dest_pkg);
-        doit('cp', '-r', '-T', "$builddir/pkg/$goos_goarch_dynlink", $dest_pkg);
+        doit('cp', '-r', '-T', "$builddir/$built_file_dir", $dest_pkg);
 
         # c) .so symlink
-        my $dest_solink = $dest_lib_prefix . "pkg/$goos_goarch_dynlink/" . basename($solink);
+        my $dest_solink = File::Spec->join($dest_lib_prefix, $rel_sopath);
         doit('ln', '-s', '-f', '-T', $final_shlib_dir . "/" . $config->{soname}, $dest_solink);
 
         # d) src symlink
